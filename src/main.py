@@ -69,12 +69,12 @@ def main():
         log(f"Parameters loaded: {hw_params}")
 
         # --- BUILD HELLO WORLD EXAMPLE ---
-        log("Building Hello World Model...")
-        from models import hello_world
-        hw_parts = hello_world.create_model(hw_params)
+        # log("Building Hello World Model...")
+        # from models import hello_world
+        # hw_parts = hello_world.create_model(hw_params)
         
         # Export Hello World
-        export_parts(hw_parts, "hello_world_assembly", output_dir_step, output_dir_stl, os.path.join(base_dir, 'output', '3mf'))
+        # export_parts(hw_parts, "hello_world_assembly", output_dir_step, output_dir_stl, os.path.join(base_dir, 'output', '3mf'))
 
 
         # --- BUILD HUB MODEL ---

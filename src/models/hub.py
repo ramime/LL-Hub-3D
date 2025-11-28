@@ -104,6 +104,56 @@ def create_model(params, global_dims):
     # Apply Cut
     hub_body = hub_body.cut(cutter)
     
+    # 6. Mounting Holes
+    # Parameters
+    hole_count = 6
+    hole_dist = 40.0
+    hole_diameter = 2.4
+    hole_radius = hole_diameter / 2
+    chamfer_size = 0.8
+    
+    # Geometry for one hole cutter
+    # 1. Straight hole (Cylinder)
+    # Make it long enough to cut through the floor (2mm)
+    cut_cyl = Part.makeCylinder(hole_radius, 10)
+    
+    # 2. Chamfer (Cone) at bottom (Z=0)
+    # Chamfer 0.8mm means it goes from Radius + 0.8 to Radius over a height of 0.8
+    chamfer_bottom_r = hole_radius + chamfer_size
+    cut_cone = Part.makeCone(chamfer_bottom_r, hole_radius, chamfer_size)
+    
+    # Fuse to make a single cutter shape
+    single_cutter = cut_cyl.fuse(cut_cone)
+    
+    # Position and Pattern
+    # We need 6 holes arranged in a circle
+    hole_cutters = []
+    import math
+    
+    for i in range(hole_count):
+        angle_deg = i * 60
+        
+        # Create a copy of the cutter
+        cutter_copy = single_cutter.copy()
+        
+        # Move to radius (on X axis initially)
+        cutter_copy.translate(FreeCAD.Vector(hole_dist, 0, 0))
+        
+        # Rotate around Z axis to final position
+        # rotate(center, axis, angle)
+        cutter_copy.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle_deg)
+        
+        hole_cutters.append(cutter_copy)
+        
+    # Fuse all cutters into one compound for efficient cutting
+    if hole_cutters:
+        all_holes = hole_cutters[0]
+        for h in hole_cutters[1:]:
+            all_holes = all_holes.fuse(h)
+            
+        # Cut from Hub
+        hub_body = hub_body.cut(all_holes)
+    
     return {
         "Hub_Body": {
             "shape": hub_body,
