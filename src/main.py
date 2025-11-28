@@ -124,6 +124,7 @@ def export_parts(parts_dict, assembly_name, step_dir, stl_dir, threemf_dir):
         
         if obj.ViewObject:
             obj.ViewObject.ShapeColor = color
+            obj.ViewObject.Visibility = True
         
         export_objects.append(obj)
         

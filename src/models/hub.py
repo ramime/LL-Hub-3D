@@ -154,6 +154,243 @@ def create_model(params, global_dims):
         # Cut from Hub
         hub_body = hub_body.cut(all_holes)
     
+    # 7. Lid Recesses (Falz für Deckel)
+    # Recess parameters
+    recess_depth = 1.8 # From top edge downwards
+    recess_width = 1.0 # From inner wall edge outwards
+    
+    # 7a. Horizontal Lid Recess
+    # We need to cut away material from the inner top edge of the wall.
+    # Strategy: Create a hexagonal prism that is slightly larger than the inner hole, 
+    # and cut it away from the top.
+    
+    # Inner hole flat-to-flat was: inner_flat_to_flat
+    # Recess starts at inner edge and goes 1mm into the wall.
+    # So the cutter diameter (flat-to-flat) is: inner_flat_to_flat + 2 * recess_width
+    recess_flat_to_flat = inner_flat_to_flat + (2 * recess_width)
+    
+    # Create the cutter prism
+    # It needs to be positioned at the top of the wall.
+    # Total height at top is z_top = floor_height + wall_height
+    # Cutter height is recess_depth.
+    # Z position is z_top - recess_depth
+    
+    # However, we have already cut the slope! 
+    # If we cut the recess now, it will follow the horizontal plane.
+    # The user says: "Zuerst muss die Aussparung für den Horizontalen Deckel gemacht werden... Danach dann des Selbe für den schrägen Deckel."
+    # This implies we cut the recess into the *current* geometry.
+    
+    # Horizontal Recess Cutter
+    recess_cutter_horiz = cad_tools.create_hexagon(recess_flat_to_flat, recess_depth)
+    
+    # The inner part of this cutter is empty space (we only want to cut the rim).
+    # Actually, if we just use a solid hexagon of size (inner + 2*width), and cut it, 
+    # it will cut the air inside the hub (no problem) and the 1mm rim of the wall.
+    # That works.
+    
+    # Position it
+    z_recess_start = (floor_height + wall_height) - recess_depth
+    recess_cutter_horiz.translate(FreeCAD.Vector(0, 0, z_recess_start))
+    
+    # Apply Horizontal Recess Cut
+    hub_body = hub_body.cut(recess_cutter_horiz)
+    
+    # 7b. Sloped Lid Recess
+    # Now we need a recess that follows the slope we created in step 5.
+    # The slope cut was defined by 'cutter' (the big prism).
+    # We need to cut 1.8mm "deeper" (perpendicular to slope? or vertical?)
+    # User says "von der Wandoberkannte ist diese 1.8 mm tief". Usually for lids this means vertical depth Z.
+    # And "1mm von der Wandinnenkante".
+    
+    # Strategy:
+    # We can reuse the slope cutter logic but shift it downwards by 1.8mm?
+    # No, that would cut the whole top off.
+    # We need to cut a "step" into the sloped surface.
+    
+    # Let's construct a cutter that represents the volume of the lid.
+    # The lid sits on the recess.
+    # So we need a shape that is:
+    # - Bounded by the inner wall (plus 1mm outwards)
+    # - Bounded by the slope plane (but 1.8mm lower?)
+    
+    # Actually, the simplest way to think about it:
+    # The slope cut (Step 5) defined the top surface.
+    # Now we want to lower that surface by 1.8mm, BUT ONLY in the region [InnerWall, InnerWall+1mm].
+    
+    # Let's create a "Recess Zone" prism:
+    # A hexagonal ring of thickness 1mm (from inner_flat_to_flat to recess_flat_to_flat).
+    # Height: Full height.
+    recess_zone_outer = cad_tools.create_hexagon(recess_flat_to_flat, 30) # High enough
+    recess_zone_inner = cad_tools.create_hexagon(inner_flat_to_flat, 30)
+    recess_ring = recess_zone_outer.cut(recess_zone_inner)
+    
+    # Now we need to trim this ring to the correct height.
+    # The top of the ring should be the current top surface MINUS 1.8mm.
+    # Wait, if we cut the recess, the "shelf" for the lid is 1.8mm below the top surface.
+    # So we want to remove material from the current top surface down to (Top - 1.8mm).
+    
+    # Let's try this:
+    # 1. Take the Slope Cutter from Step 5.
+    # 2. Move it DOWN by 1.8mm (Z-1.8).
+    # 3. Intersect it with the "Recess Ring" (the 1mm wide zone).
+    # This gives us a shape that represents the volume to be removed for the sloped recess?
+    # No, the slope cutter removes everything ABOVE.
+    # If we move it down, it covers the volume we want to remove (plus more).
+    # So:
+    # Cutter_Down = Slope_Cutter.translated(0, 0, -1.8)
+    # Recess_Volume = Cutter_Down.common(Recess_Ring)
+    # Hub = Hub.cut(Recess_Volume)
+    
+    # But wait, we also have the horizontal part.
+    # The horizontal recess was already cut.
+    # The slope recess needs to handle the sloped part.
+    
+    # Let's recreate the slope cutter (we didn't keep it in a variable accessible here, so let's rebuild or move logic).
+    # Ideally, we should have defined the recess BEFORE the slope cut?
+    # No, the recess follows the slope.
+    
+    # Let's rebuild the slope cutter geometry for the recess.
+    # We used 'cutter' in Step 5.
+    # We need a cutter that is 1.8mm lower.
+    
+    # Re-calculate points for slope cutter (shifted down by recess_depth)
+    cut_points_recess = []
+    for p in cut_points: # cut_points from Step 5
+        # Shift Z down by recess_depth
+        cut_points_recess.append((p[0], p[1], p[2] - recess_depth))
+        
+    cut_points_shifted_recess = []
+    for p in cut_points_recess:
+        cut_points_shifted_recess.append(FreeCAD.Vector(-x_width/2, p[1], p[2]))
+        
+    slope_cutter_lower = cad_tools.create_prism_from_points(cut_points_shifted_recess, FreeCAD.Vector(x_width, 0, 0))
+    
+    # Now intersect this "Lower Slope Cutter" with the "Recess Ring"
+    # Recess Ring needs to be placed correctly (it was created at Z=0).
+    # It needs to go up to at least the top of the wall.
+    # recess_ring is 30mm high, created at Z=0.
+    # Our wall is 2+14=16mm high. So it covers it.
+    
+    # The volume to cut is: The intersection of (Everything above the Lower Slope Plane) AND (The 1mm Ring).
+    # slope_cutter_lower is "Everything above the Lower Slope Plane".
+    recess_cut_volume = slope_cutter_lower.common(recess_ring)
+    
+    # Apply the cut
+    hub_body = hub_body.cut(recess_cut_volume)
+    
+    # 8. Spacer Rim (Abstandsrand)
+    # 0.5mm thick, 10mm high, around the outer wall.
+    rim_thickness = 0.5
+    rim_height = 10.0
+    
+    # Outer dimension of the rim
+    rim_flat_to_flat_outer = outer_flat_to_flat + (2 * rim_thickness)
+    
+    # Create Rim Geometry
+    rim_outer_shape = cad_tools.create_hexagon(rim_flat_to_flat_outer, rim_height)
+    rim_inner_shape = cad_tools.create_hexagon(outer_flat_to_flat, rim_height)
+    
+    rim_shape = rim_outer_shape.cut(rim_inner_shape)
+    
+    # Fuse to Hub
+    hub_body = hub_body.fuse(rim_shape)
+    
+    # 9. Magnet Pillars (Magnetpfeiler)
+    # Parameters
+    # Radius from center to outer pillars
+    magnet_dist = global_dims['system']['magnet_mounting_radius_mm']
+    
+    # Pillar dimensions
+    # Inner diameter 10.1mm -> Radius 5.05mm
+    mag_inner_r = 10.1 / 2
+    # Wall thickness 0.85mm
+    mag_wall_thick = 0.85
+    # Outer diameter = 10.1 + 2*0.85 = 11.8mm -> Radius 5.9mm
+    mag_outer_r = mag_inner_r + mag_wall_thick
+    
+    # Heights
+    # "11,2mm hoch. Das ist die Fläche wo der Magnet aufliegt."
+    # So the solid cylinder goes up to Z=11.2
+    mag_base_height = 11.2
+    
+    # "Rand um den Magneten ... 2mm Höhe"
+    # This rim sits ON TOP of the base height? Or is the total height 11.2 + 2?
+    # Usually "Rand ... 2mm Höhe" implies it protrudes 2mm above the seating surface.
+    mag_rim_height = 2.0
+    
+    # Geometry Construction for ONE Pillar
+    # 1. Base Cylinder (Solid)
+    # Radius = Outer Radius (11.8mm)
+    # Height = Base Height (11.2mm)
+    # Note: It sits on the floor (Z=2mm) or starts at Z=0?
+    # "Pfeiler" usually implies starting from the bottom.
+    # If the floor is 2mm thick, and the pillar is 11.2mm high, does it mean 11.2mm from Z=0 or from Z=2?
+    # Usually absolute height from Z=0 is meant in mechanical design unless specified "above floor".
+    # Let's assume 11.2mm is the Z-coordinate of the seating surface.
+    # Since the floor is at Z=0..2, the pillar goes from Z=0 to Z=11.2.
+    
+    pillar_base = Part.makeCylinder(mag_outer_r, mag_base_height)
+    
+    # 2. Rim (Hollow Cylinder)
+    # Sits on top of base (Z=11.2)
+    # Height = 2.0
+    # Outer Radius = 11.8mm
+    # Inner Radius = 10.1mm
+    rim_outer = Part.makeCylinder(mag_outer_r, mag_rim_height)
+    rim_inner = Part.makeCylinder(mag_inner_r, mag_rim_height)
+    pillar_rim = rim_outer.cut(rim_inner)
+    pillar_rim.translate(FreeCAD.Vector(0, 0, mag_base_height))
+    
+    # Fuse Base and Rim
+    single_pillar = pillar_base.fuse(pillar_rim)
+    
+    # Positions
+    # 1. Center Pillar (0,0)
+    # 2. North Pillar (0, magnet_dist) -> Angle 90 deg?
+    # User says: "einer nach Norden" -> Y-Axis positive?
+    # "die beiden Anderen jeweils 60Grad rechts und Links davon"
+    # North is 90 deg (if X is East).
+    # Left of North (+60) = 150 deg.
+    # Right of North (-60) = 30 deg.
+    
+    # Let's verify coordinates.
+    # North: (0, 33.5)
+    # +60 deg from North: Rotate (0, 33.5) by 60 deg around Z.
+    # -60 deg from North: Rotate (0, 33.5) by -60 deg around Z.
+    
+    pillar_positions = [
+        FreeCAD.Vector(0, 0, 0), # Center
+        FreeCAD.Vector(0, magnet_dist, 0) # North
+    ]
+    
+    # Calculate the other two
+    import math
+    # North vector
+    v_north = FreeCAD.Vector(0, magnet_dist, 0)
+    
+    # Rotate +60 (Left)
+    m = FreeCAD.Matrix()
+    m.rotateZ(math.radians(60))
+    v_left = m.multVec(v_north) # multVec is the correct method in FreeCAD Python API
+    pillar_positions.append(v_left)
+    
+    # Rotate -60 (Right)
+    m = FreeCAD.Matrix()
+    m.rotateZ(math.radians(-60))
+    v_right = m.multVec(v_north)
+    pillar_positions.append(v_right)
+    
+    # Place and Fuse Pillars
+    all_pillars = []
+    for pos in pillar_positions:
+        p = single_pillar.copy()
+        p.translate(pos)
+        all_pillars.append(p)
+        
+    # Fuse all pillars to Hub
+    for p in all_pillars:
+        hub_body = hub_body.fuse(p)
+    
     return {
         "Hub_Body": {
             "shape": hub_body,

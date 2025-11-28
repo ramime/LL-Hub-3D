@@ -53,6 +53,36 @@ def export_to_fcstd(doc, filename, output_dir):
     """
     path = os.path.join(output_dir, filename + ".FCStd")
     try:
+        # Set View Orientation (Isometric-like)
+        # We need to access the GUI view provider if possible, but in console mode (freecadcmd) 
+        # we don't have a full GUI. However, we can set the camera of the active view if it exists,
+        # or just save.
+        
+        # In console mode, View manipulation is limited. 
+        # But we can try to set the camera orientation in the document's ViewProvider if accessible?
+        # Actually, FreeCAD saves the last view state.
+        
+        # Since we are in console mode, we might not be able to set the "ActiveView".
+        # But we can try to create a view if one doesn't exist?
+        # Usually, the view configuration is stored in gui-document.xml inside the FCStd zip.
+        
+        # Workaround: We can't easily control the initial view from console mode without a GUI module.
+        # BUT, we can try to set the placement of the camera if we had access to Gui.
+        
+        # Let's try to see if we can import Gui (it might fail in pure console mode, but freecadcmd has some access).
+        try:
+            import FreeCADGui
+            if FreeCADGui.activeDocument():
+                view = FreeCADGui.activeDocument().activeView()
+                if view:
+                    view.viewAxonometric()
+                    view.fitAll()
+        except ImportError:
+            # Gui not available
+            pass
+        except Exception:
+            pass
+
         doc.saveAs(path)
         print(f"Saved FCStd to {path}")
     except Exception as e:
