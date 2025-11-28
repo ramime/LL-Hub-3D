@@ -78,11 +78,11 @@ def main():
 
 
         # --- BUILD HUB MODEL ---
-        # log("Building Hub Model...")
-        # from models import hub
-        # hub_parts = hub.create_model(params.get('hub', {}), global_dims)
-        # if hub_parts:
-        #     export_parts(hub_parts, "hub_assembly", output_dir_step, output_dir_stl, os.path.join(base_dir, 'output', '3mf'))
+        log("Building Hub Model...")
+        from models import hub
+        hub_parts = hub.create_model(params.get('hub', {}), global_dims)
+        if hub_parts:
+            export_parts(hub_parts, "hub_assembly", output_dir_step, output_dir_stl, os.path.join(base_dir, 'output', '3mf'))
         
         log("Done successfully!")
         
