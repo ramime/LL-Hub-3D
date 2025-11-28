@@ -17,3 +17,9 @@ def fillet_edges(shape, radius):
     # Apply fillet
     filleted_shape = shape.makeFillet(radius, edges)
     return filleted_shape
+
+def create_cylinder(radius, height):
+    """
+    Creates a simple cylinder.
+    """
+    return Part.makeCylinder(radius, height)

@@ -1,0 +1,12 @@
+{
+    "printer": {
+        "model": "Bambu Lab A1 / A1 Mini",
+        "slicer": "Bambu Studio",
+        "max_build_volume_mm": {
+            "x": 180,
+            "y": 180,
+            "z": 180
+        },
+        "notes": "A1 Mini has 180x180x180mm volume. Standard A1 is 256x256x256mm. Designing for Mini ensures compatibility with both."
+    }
+}
