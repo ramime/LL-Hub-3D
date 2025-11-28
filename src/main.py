@@ -132,6 +132,12 @@ def export_parts(parts_dict, assembly_name, step_dir, stl_dir, threemf_dir):
     # 3. Export Assembly 3MF
     export_tools.export_to_3mf(export_objects, assembly_name, threemf_dir)
 
+    # 4. Export FreeCAD Document (.FCStd)
+    fcstd_dir = os.path.join(os.path.dirname(threemf_dir), 'fcstd')
+    if not os.path.exists(fcstd_dir):
+        os.makedirs(fcstd_dir)
+    export_tools.export_to_fcstd(doc, assembly_name, fcstd_dir)
+
 # Log the scope name to understand how FreeCAD runs this
 
 # Log the scope name to understand how FreeCAD runs this

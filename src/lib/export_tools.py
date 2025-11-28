@@ -42,3 +42,18 @@ def export_to_3mf(objects, filename, output_dir):
         print(f"Exported 3MF to {path}")
     except Exception as e:
         print(f"Error exporting 3MF: {e}")
+
+def export_to_fcstd(doc, filename, output_dir):
+    """
+    Saves the FreeCAD document to an .FCStd file.
+    Args:
+        doc: The FreeCAD document object.
+        filename: Name of the file without extension.
+        output_dir: Target directory.
+    """
+    path = os.path.join(output_dir, filename + ".FCStd")
+    try:
+        doc.saveAs(path)
+        print(f"Saved FCStd to {path}")
+    except Exception as e:
+        print(f"Error saving FCStd: {e}")
