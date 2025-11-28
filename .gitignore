@@ -1,0 +1,8 @@
+# Generated files
+output/
+__pycache__/
+*.pyc
+
+# OS specific
+.DS_Store
+Thumbs.db
