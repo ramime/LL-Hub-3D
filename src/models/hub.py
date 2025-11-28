@@ -2,7 +2,7 @@ import FreeCAD
 import Part
 from lib import cad_tools
 
-def create_model(params, global_dims):
+def create_model(params, global_dims, features={}):
     """
     Creates the Hub model.
     Returns a dictionary of parts: {'part_name': shape}
@@ -451,50 +451,51 @@ def create_model(params, global_dims):
             
         hub_body = hub_body.cut(combined_holes)
     
-    # 11. Hub Controller PCB Pillars
-    # Dimensions
-    ctrl_outer_r = 5.0 / 2
-    ctrl_hole_r = 2.0 / 2
-    ctrl_height = 5.0 # Height from inner floor
-    
-    # Positions (X, Y) based on user image
-    ctrl_positions = [
-        FreeCAD.Vector(-16, 28, 0),  # Top-Left
-        FreeCAD.Vector(16, 28, 0),   # Top-Right
-        FreeCAD.Vector(-32, 0, 0),   # Mid-Left
-        FreeCAD.Vector(32, 0, 0),    # Mid-Right
-        FreeCAD.Vector(-17, -26, 0), # Bottom-Left
-        FreeCAD.Vector(17, -26, 0)   # Bottom-Right
-    ]
-    
-    # Create Geometry
-    # Solid Pillar sitting on floor (Z=2.0)
-    ctrl_pillar_solid = Part.makeCylinder(ctrl_outer_r, ctrl_height)
-    ctrl_pillar_solid.translate(FreeCAD.Vector(0, 0, floor_height))
-    
-    # Fuse pillars
-    for pos in ctrl_positions:
-        p = ctrl_pillar_solid.copy()
-        p.translate(pos)
-        hub_body = hub_body.fuse(p)
+    # 11. Hub Controller PCB Pillars (Optional Feature)
+    if features.get('controller_mounts', False):
+        # Dimensions
+        ctrl_outer_r = 5.0 / 2
+        ctrl_hole_r = 2.0 / 2
+        ctrl_height = 5.0 # Height from inner floor
         
-    # Cut Holes
-    # Through hole (Z=-1 to Top)
-    ctrl_hole_cutter = Part.makeCylinder(ctrl_hole_r, floor_height + ctrl_height + 5)
-    ctrl_hole_cutter.translate(FreeCAD.Vector(0, 0, -1))
-    
-    all_ctrl_holes = []
-    for pos in ctrl_positions:
-        h = ctrl_hole_cutter.copy()
-        h.translate(pos)
-        all_ctrl_holes.append(h)
+        # Positions (X, Y) based on user image
+        ctrl_positions = [
+            FreeCAD.Vector(-16, 28, 0),  # Top-Left
+            FreeCAD.Vector(16, 28, 0),   # Top-Right
+            FreeCAD.Vector(-32, 0, 0),   # Mid-Left
+            FreeCAD.Vector(32, 0, 0),    # Mid-Right
+            FreeCAD.Vector(-17, -26, 0), # Bottom-Left
+            FreeCAD.Vector(17, -26, 0)   # Bottom-Right
+        ]
         
-    if all_ctrl_holes:
-        combined_ctrl_holes = all_ctrl_holes[0]
-        for h in all_ctrl_holes[1:]:
-            combined_ctrl_holes = combined_ctrl_holes.fuse(h)
+        # Create Geometry
+        # Solid Pillar sitting on floor (Z=2.0)
+        ctrl_pillar_solid = Part.makeCylinder(ctrl_outer_r, ctrl_height)
+        ctrl_pillar_solid.translate(FreeCAD.Vector(0, 0, floor_height))
+        
+        # Fuse pillars
+        for pos in ctrl_positions:
+            p = ctrl_pillar_solid.copy()
+            p.translate(pos)
+            hub_body = hub_body.fuse(p)
             
-        hub_body = hub_body.cut(combined_ctrl_holes)
+        # Cut Holes
+        # Through hole (Z=-1 to Top)
+        ctrl_hole_cutter = Part.makeCylinder(ctrl_hole_r, floor_height + ctrl_height + 5)
+        ctrl_hole_cutter.translate(FreeCAD.Vector(0, 0, -1))
+        
+        all_ctrl_holes = []
+        for pos in ctrl_positions:
+            h = ctrl_hole_cutter.copy()
+            h.translate(pos)
+            all_ctrl_holes.append(h)
+            
+        if all_ctrl_holes:
+            combined_ctrl_holes = all_ctrl_holes[0]
+            for h in all_ctrl_holes[1:]:
+                combined_ctrl_holes = combined_ctrl_holes.fuse(h)
+                
+            hub_body = hub_body.cut(combined_ctrl_holes)
     
     return {
         "Hub_Body": {
