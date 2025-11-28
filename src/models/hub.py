@@ -328,18 +328,20 @@ def create_model(params, global_dims):
     # Usually absolute height from Z=0 is meant in mechanical design unless specified "above floor".
     # Let's assume 11.2mm is the Z-coordinate of the seating surface.
     # Since the floor is at Z=0..2, the pillar goes from Z=0 to Z=11.2.
+    # CORRECTION: User says "Das Mass darf nicht ab dem Boden unten außen gemessen werden sondern im Inneren des Slot".
+    # This means the height 11.2mm is FROM THE INNER FLOOR (Z=2.0).
+    # So the pillar sits on Z=2.0 and has a length of 11.2mm.
     
     pillar_base = Part.makeCylinder(mag_outer_r, mag_base_height)
+    pillar_base.translate(FreeCAD.Vector(0, 0, floor_height)) # Move up to sit on floor
     
     # 2. Rim (Hollow Cylinder)
-    # Sits on top of base (Z=11.2)
+    # Sits on top of base (Z = floor_height + mag_base_height)
     # Height = 2.0
-    # Outer Radius = 11.8mm
-    # Inner Radius = 10.1mm
     rim_outer = Part.makeCylinder(mag_outer_r, mag_rim_height)
     rim_inner = Part.makeCylinder(mag_inner_r, mag_rim_height)
     pillar_rim = rim_outer.cut(rim_inner)
-    pillar_rim.translate(FreeCAD.Vector(0, 0, mag_base_height))
+    pillar_rim.translate(FreeCAD.Vector(0, 0, floor_height + mag_base_height))
     
     # Fuse Base and Rim
     single_pillar = pillar_base.fuse(pillar_rim)
@@ -390,6 +392,64 @@ def create_model(params, global_dims):
     # Fuse all pillars to Hub
     for p in all_pillars:
         hub_body = hub_body.fuse(p)
+        
+    # 10. PogoPin PCB Pillars
+    # Dimensions
+    pogo_outer_r = 5.0 / 2
+    pogo_hole_r = 2.0 / 2
+    pogo_height = 9.7 # Length of pillar sitting on floor
+    
+    # Positions
+    # Reference line Y = 16.65
+    y_ref = 16.65
+    y_offset = 7.5
+    
+    # X offsets
+    x_left = -6.0
+    x_right = 5.0
+    
+    # Coordinates (X, Y)
+    pogo_positions = [
+        FreeCAD.Vector(x_left, y_ref + y_offset, 0),  # Top-Left
+        FreeCAD.Vector(x_left, y_ref - y_offset, 0),  # Bottom-Left
+        FreeCAD.Vector(x_right, y_ref + y_offset, 0), # Top-Right
+        FreeCAD.Vector(x_right, y_ref - y_offset, 0)  # Bottom-Right
+    ]
+    
+    # Create Geometry
+    # We create solid pillars first, fuse them, then cut the holes.
+    
+    # Solid Pillar
+    # Sits on floor (Z=2.0)
+    pogo_pillar_solid = Part.makeCylinder(pogo_outer_r, pogo_height)
+    pogo_pillar_solid.translate(FreeCAD.Vector(0, 0, floor_height))
+    
+    # Fuse pillars
+    for pos in pogo_positions:
+        p = pogo_pillar_solid.copy()
+        p.translate(pos)
+        hub_body = hub_body.fuse(p)
+        
+    # Cut Holes
+    # Through hole means through pillar AND floor? 
+    # "Loch mit Durchmesser von 2mm (durchgehend)" usually implies through the mounting point.
+    # We will cut from Z=-1 to Top.
+    hole_cutter_shape = Part.makeCylinder(pogo_hole_r, floor_height + pogo_height + 5) # Extra length
+    hole_cutter_shape.translate(FreeCAD.Vector(0, 0, -1))
+    
+    # Combine all hole cutters
+    all_pogo_holes = []
+    for pos in pogo_positions:
+        h = hole_cutter_shape.copy()
+        h.translate(pos)
+        all_pogo_holes.append(h)
+        
+    if all_pogo_holes:
+        combined_holes = all_pogo_holes[0]
+        for h in all_pogo_holes[1:]:
+            combined_holes = combined_holes.fuse(h)
+            
+        hub_body = hub_body.cut(combined_holes)
     
     return {
         "Hub_Body": {
