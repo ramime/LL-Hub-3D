@@ -432,10 +432,10 @@ def create_model(params, global_dims, features={}):
         
     # Cut Holes
     # Through hole means through pillar AND floor? 
-    # "Loch mit Durchmesser von 2mm (durchgehend)" usually implies through the mounting point.
-    # We will cut from Z=-1 to Top.
-    hole_cutter_shape = Part.makeCylinder(pogo_hole_r, floor_height + pogo_height + 5) # Extra length
-    hole_cutter_shape.translate(FreeCAD.Vector(0, 0, -1))
+    # User Request: "nicht durchgehend" (Sackloch).
+    # So we cut from floor_height upwards.
+    hole_cutter_shape = Part.makeCylinder(pogo_hole_r, pogo_height + 5) # Length covers pillar
+    hole_cutter_shape.translate(FreeCAD.Vector(0, 0, floor_height)) # Start at floor top
     
     # Combine all hole cutters
     all_pogo_holes = []
@@ -480,9 +480,9 @@ def create_model(params, global_dims, features={}):
             hub_body = hub_body.fuse(p)
             
         # Cut Holes
-        # Through hole (Z=-1 to Top)
-        ctrl_hole_cutter = Part.makeCylinder(ctrl_hole_r, floor_height + ctrl_height + 5)
-        ctrl_hole_cutter.translate(FreeCAD.Vector(0, 0, -1))
+        # User Request: Sackloch (not through floor)
+        ctrl_hole_cutter = Part.makeCylinder(ctrl_hole_r, ctrl_height + 5)
+        ctrl_hole_cutter.translate(FreeCAD.Vector(0, 0, floor_height))
         
         all_ctrl_holes = []
         for pos in ctrl_positions:

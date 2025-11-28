@@ -79,9 +79,17 @@ def main():
 
         # --- BUILD SINGLE SLOT (FULL FEATURES) ---
         log("Building Single Slot (Full Features)...")
-        from models import hub
+        from models import hub, lids
         # Single slot gets controller mounts for testing
         single_slot_parts = hub.create_model(params.get('hub', {}), global_dims, features={'controller_mounts': True})
+        
+        # Add Lids
+        lid_horiz = lids.create_horizontal_lid(global_dims)
+        single_slot_parts.update(lid_horiz)
+        
+        lid_sloped = lids.create_sloped_lid(global_dims)
+        single_slot_parts.update(lid_sloped)
+        
         if single_slot_parts:
             export_parts(single_slot_parts, "Hub_Single_Slot", output_dir_step, output_dir_stl, os.path.join(base_dir, 'output', '3mf'))
 
