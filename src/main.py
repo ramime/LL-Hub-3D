@@ -24,7 +24,6 @@ def log(message):
     """Log to both console and file."""
     msg = str(message) + "\n"
     FreeCAD.Console.PrintMessage(msg)
-    print(msg) # Fallback
     with open(debug_log_path, 'a') as f:
         f.write(msg)
 
