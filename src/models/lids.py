@@ -74,6 +74,69 @@ def create_horizontal_lid(global_dims):
         h.translate(pos)
         lid_shape = lid_shape.cut(h)
         
+    # 4. Magnet Recesses (Aussparungen für Magnetpfeiler)
+    # The lid sits on the magnet pillars. We need to cut away material from the bottom
+    # so that only 0.6mm remains.
+    # Recess Depth = Lid Thickness (1.8) - Remaining (0.6) = 1.2mm.
+    # Diameter = Magnet Outer (11.8) + 0.2 = 12.0mm -> Radius 6.0mm.
+    
+    mag_recess_depth = lid_thickness - 0.6
+    mag_recess_r = 6.0
+    
+    # Magnet Positions (Same as in hub.py)
+    magnet_dist = global_dims['system']['magnet_mounting_radius_mm']
+    
+    mag_positions = [
+        FreeCAD.Vector(0, 0, 0), # Center
+        FreeCAD.Vector(0, magnet_dist, 0) # North
+    ]
+    
+    # Calculate the other two (Rotated +/- 60 from North)
+    v_north = FreeCAD.Vector(0, magnet_dist, 0)
+    
+    m = FreeCAD.Matrix()
+    m.rotateZ(math.radians(60))
+    mag_positions.append(m.multVec(v_north)) # Left
+    
+    m = FreeCAD.Matrix()
+    m.rotateZ(math.radians(-60))
+    mag_positions.append(m.multVec(v_north)) # Right
+    
+    # Create Recess Cutter
+    # Cylinder of radius 6.0, height 1.2
+    # Starts at lid bottom (z_lid_bottom) and goes up.
+    
+    mag_cutter = Part.makeCylinder(mag_recess_r, mag_recess_depth)
+    mag_cutter.translate(FreeCAD.Vector(0, 0, z_lid_bottom))
+    
+    for pos in mag_positions:
+        c = mag_cutter.copy()
+        c.translate(pos)
+        lid_shape = lid_shape.cut(c)
+        
+    # 5. PogoPin Cutout (Ausschnitt für PogoPins)
+    # Rectangular cutout.
+    # Width = 4.7mm (Total width)
+    # Height = 17.3mm
+    # Bottom Edge at Y = 8.0mm (from center)
+    
+    pogo_width = 4.7
+    pogo_height = 17.3
+    pogo_y_start = 8.0
+    
+    # Create Box Cutter
+    # Box is created at (0,0,0) -> (L, W, H)
+    # We need to center it on X.
+    pogo_cutter = Part.makeBox(pogo_width, pogo_height, 50) # High enough to cut through lid
+    
+    # Translate to correct position
+    # X: -width/2
+    # Y: pogo_y_start
+    # Z: -10 (to cut through everything)
+    pogo_cutter.translate(FreeCAD.Vector(-pogo_width/2, pogo_y_start, -10))
+    
+    lid_shape = lid_shape.cut(pogo_cutter)
+        
     return {
         "Lid_Horizontal": {
             "shape": lid_shape,
