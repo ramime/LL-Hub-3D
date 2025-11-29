@@ -80,8 +80,8 @@ def main():
         # --- BUILD SINGLE SLOT (FULL FEATURES) ---
         log("Building Single Slot (Full Features)...")
         from models import hub, lids
-        # Single slot gets controller mounts for testing
-        single_slot_parts = hub.create_model(params.get('hub', {}), global_dims, features={'controller_mounts': True})
+        # Single slot gets controller mounts and usb mounts for testing
+        single_slot_parts = hub.create_model(params.get('hub', {}), global_dims, features={'controller_mounts': True, 'usb_mounts': True})
         
         # Add Lids
         lid_horiz = lids.create_horizontal_lid(global_dims)
@@ -194,11 +194,25 @@ def main():
             all_slot_shapes = []
             
             for slot in slots_config:
-                # Determine features
-                has_controller = (slot['id'] == 5)
+                # Determine features based on Hub Type
+                has_controller = False
+                has_usb = False
+                
+                if hub_type == "A":
+                    # Type A: Slot 2 = Controller, Slot 3 = USB
+                    if slot['id'] == 2: has_controller = True
+                    if slot['id'] == 3: has_usb = True
+                elif hub_type == "B":
+                    # Type B: Slot 5 = Controller, Slot 3 = USB
+                    if slot['id'] == 5: has_controller = True
+                    if slot['id'] == 3: has_usb = True
                 
                 # Generate Slot Shape
-                parts = hub.create_model(params.get('hub', {}), global_dims, features={'controller_mounts': has_controller})
+                features = {
+                    'controller_mounts': has_controller,
+                    'usb_mounts': has_usb
+                }
+                parts = hub.create_model(params.get('hub', {}), global_dims, features=features)
                 slot_shape = parts['Hub_Body']['shape']
                 
                 # Calculate Position

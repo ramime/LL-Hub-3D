@@ -498,64 +498,58 @@ def create_model(params, global_dims, features={}):
             hub_body = hub_body.cut(combined_ctrl_holes)
             
     # 12. South PCB Pillars (Südliche Platine)
-    # 4 Pillars, Square 14mm, Symmetric to Y-axis.
-    # South pillars 3mm from inner south wall.
-    
-    # Calculate Y position of inner south wall
-    # inner_flat_to_flat was calculated earlier
-    # Y_south_wall = -inner_flat_to_flat / 2
-    y_south_wall_inner = -inner_flat_to_flat / 2
-    
-    y_south_pillars = y_south_wall_inner + 3.0
-    y_north_pillars = y_south_pillars + 14.0
-    
-    x_offset = 14.0 / 2 # 7.0
-    
-    south_pcb_positions = [
-        FreeCAD.Vector(-x_offset, y_north_pillars, 0), # Top-Left
-        FreeCAD.Vector(x_offset, y_north_pillars, 0),  # Top-Right
-        FreeCAD.Vector(-x_offset, y_south_pillars, 0), # Bottom-Left
-        FreeCAD.Vector(x_offset, y_south_pillars, 0)   # Bottom-Right
-    ]
-    
-    # Dimensions
-    spcb_outer_r = 4.0 / 2
-    spcb_inner_r = 2.0 / 2
-    spcb_height = 2.0 # Height above floor
-    
-    # Create Pillars
-    # Solid cylinder from Z=2.0 to Z=4.0
-    spcb_pillar_solid = Part.makeCylinder(spcb_outer_r, spcb_height)
-    spcb_pillar_solid.translate(FreeCAD.Vector(0, 0, floor_height))
-    
-    for pos in south_pcb_positions:
-        p = spcb_pillar_solid.copy()
-        p.translate(pos)
-        hub_body = hub_body.fuse(p)
+    if features.get('usb_mounts', False):
+        # 4 Pillars, Square 14mm, Symmetric to Y-axis.
+        # South pillars 3mm from inner south wall.
         
-    # Cut Holes
-    # "Bohrung auch in 1mm in den Boden gehen"
-    # Floor is Z=0 to Z=2.
-    # Hole should go down to Z=1.0.
-    # Top of hole is Z=4.0.
-    # Length = 3.0mm (plus extra for safety at top).
-    
-    spcb_hole_cutter = Part.makeCylinder(spcb_inner_r, spcb_height + 1.0 + 5.0) # Enough length
-    spcb_hole_cutter.translate(FreeCAD.Vector(0, 0, 1.0)) # Start at Z=1.0
-    
-    all_spcb_holes = []
-    for pos in south_pcb_positions:
-        h = spcb_hole_cutter.copy()
-        h.translate(pos)
-        all_spcb_holes.append(h)
+        # Calculate Y position of inner south wall
+        # inner_flat_to_flat was calculated earlier
+        # Y_south_wall = -inner_flat_to_flat / 2
+        y_south_wall_inner = -inner_flat_to_flat / 2
         
-    if all_spcb_holes:
-        combined_spcb_holes = all_spcb_holes[0]
-        for h in all_spcb_holes[1:]:
-            combined_spcb_holes = combined_spcb_holes.fuse(h)
+        y_south_pillars = y_south_wall_inner + 3.0
+        y_north_pillars = y_south_pillars + 14.0
+        
+        x_offset = 14.0 / 2 # 7.0
+        
+        south_pcb_positions = [
+            FreeCAD.Vector(-x_offset, y_north_pillars, 0), # Top-Left
+            FreeCAD.Vector(x_offset, y_north_pillars, 0),  # Top-Right
+            FreeCAD.Vector(-x_offset, y_south_pillars, 0), # Bottom-Left
+            FreeCAD.Vector(x_offset, y_south_pillars, 0)   # Bottom-Right
+        ]
+        
+        # Dimensions
+        spcb_outer_r = 4.0 / 2
+        spcb_inner_r = 2.0 / 2
+        spcb_height = 2.0 # Height above floor
+        
+        # Create Pillars
+        # Solid cylinder from Z=2.0 to Z=4.0
+        spcb_pillar_solid = Part.makeCylinder(spcb_outer_r, spcb_height)
+        spcb_pillar_solid.translate(FreeCAD.Vector(0, 0, floor_height))
+        
+        for pos in south_pcb_positions:
+            p = spcb_pillar_solid.copy()
+            p.translate(pos)
+            hub_body = hub_body.fuse(p)
             
-        hub_body = hub_body.cut(combined_spcb_holes)
-    
+        # Cut Holes
+        # "Bohrung auch in 1mm in den Boden gehen"
+        # Floor is Z=0 to Z=2.
+        # Hole should go down to Z=1.0.
+        # Top of hole is Z=4.0.
+        # Length = 3.0mm (plus extra for safety at top).
+        
+        spcb_hole_cutter = Part.makeCylinder(spcb_inner_r, spcb_height + 1.0 + 5.0) # Enough length
+        spcb_hole_cutter.translate(FreeCAD.Vector(0, 0, 1.0)) # Start at Z=1.0
+        
+        all_spcb_holes = []
+        for pos in south_pcb_positions:
+            h = spcb_hole_cutter.copy()
+            h.translate(pos)
+            all_spcb_holes.append(h)
+            
         if all_spcb_holes:
             combined_spcb_holes = all_spcb_holes[0]
             for h in all_spcb_holes[1:]:
@@ -563,64 +557,64 @@ def create_model(params, global_dims, features={}):
                 
             hub_body = hub_body.cut(combined_spcb_holes)
             
-    # 13. South Wall Cutout (Aussparung Südliche Wand)
-    # Rectangle 13x7mm, Radius 2mm.
-    # Centered in Width (X=0).
-    # Height: 1.5mm material remaining at the top.
-    # The top of the wall at the South face is z_south (calculated in Slope section).
-    # If slope is not active (unlikely for this specific request), we use z_top_wall.
-    
-    # Recalculate z_south to be sure (or use variables if scope allows, but safer to recalc)
-    slope_length_y = 29.0
-    slope_angle_deg = 80.0
-    z_top_wall = floor_height + wall_height
-    angle_from_horizontal_rad = math.radians(90 - slope_angle_deg)
-    delta_z = slope_length_y * math.tan(angle_from_horizontal_rad)
-    z_south = z_top_wall - delta_z
-    
-    cutout_w = 13.0
-    cutout_h = 7.0
-    cutout_r = 2.0
-    material_above = 2.0 # Changed from 1.5
-    
-    cutout_top_z = z_south - material_above
-    cutout_bottom_z = cutout_top_z - cutout_h
-    
-    # Create Cutter Box
-    # We need to cut through the wall but NOT hit the pillars inside.
-    # Wall thickness is 2.4mm. Pillars are 3mm away from inner wall.
-    # So we have plenty of space if we are careful.
-    # Let's cut from outside inwards, stopping just after the inner wall.
-    
-    y_south_outer = -outer_flat_to_flat / 2
-    y_south_inner = y_south_outer + wall_thickness
-    
-    # Cutter Y range: Start 1mm outside, End 0.5mm inside (to ensure clean cut)
-    y_cut_start = y_south_outer - 1.0
-    y_cut_end = y_south_inner + 0.5
-    cutout_depth = y_cut_end - y_cut_start
-    
-    cutout_box = Part.makeBox(cutout_w, cutout_depth, cutout_h)
-    
-    # Position
-    # X: Centered -> -w/2
-    # Y: y_cut_start
-    # Z: cutout_bottom_z
-    
-    cutout_box.translate(FreeCAD.Vector(-cutout_w/2, y_cut_start, cutout_bottom_z))
-    
-    # Fillet edges parallel to Y
-    edges_to_fillet = []
-    for edge in cutout_box.Edges:
-        # Check if edge is parallel to Y
-        tangent = edge.tangentAt(edge.FirstParameter)
-        if abs(tangent.y) > 0.99: # Parallel to Y
-            edges_to_fillet.append(edge)
-            
-    if edges_to_fillet:
-        cutout_box = cutout_box.makeFillet(cutout_r, edges_to_fillet)
+        # 13. South Wall Cutout (Aussparung Südliche Wand)
+        # Rectangle 13x7mm, Radius 2mm.
+        # Centered in Width (X=0).
+        # Height: 1.5mm material remaining at the top.
+        # The top of the wall at the South face is z_south (calculated in Slope section).
+        # If slope is not active (unlikely for this specific request), we use z_top_wall.
         
-    hub_body = hub_body.cut(cutout_box)
+        # Recalculate z_south to be sure (or use variables if scope allows, but safer to recalc)
+        slope_length_y = 29.0
+        slope_angle_deg = 80.0
+        z_top_wall = floor_height + wall_height
+        angle_from_horizontal_rad = math.radians(90 - slope_angle_deg)
+        delta_z = slope_length_y * math.tan(angle_from_horizontal_rad)
+        z_south = z_top_wall - delta_z
+        
+        cutout_w = 13.0
+        cutout_h = 7.0
+        cutout_r = 2.0
+        material_above = 2.0 # Changed from 1.5
+        
+        cutout_top_z = z_south - material_above
+        cutout_bottom_z = cutout_top_z - cutout_h
+        
+        # Create Cutter Box
+        # We need to cut through the wall but NOT hit the pillars inside.
+        # Wall thickness is 2.4mm. Pillars are 3mm away from inner wall.
+        # So we have plenty of space if we are careful.
+        # Let's cut from outside inwards, stopping just after the inner wall.
+        
+        y_south_outer = -outer_flat_to_flat / 2
+        y_south_inner = y_south_outer + wall_thickness
+        
+        # Cutter Y range: Start 1mm outside, End 0.5mm inside (to ensure clean cut)
+        y_cut_start = y_south_outer - 1.0
+        y_cut_end = y_south_inner + 0.5
+        cutout_depth = y_cut_end - y_cut_start
+        
+        cutout_box = Part.makeBox(cutout_w, cutout_depth, cutout_h)
+        
+        # Position
+        # X: Centered -> -w/2
+        # Y: y_cut_start
+        # Z: cutout_bottom_z
+        
+        cutout_box.translate(FreeCAD.Vector(-cutout_w/2, y_cut_start, cutout_bottom_z))
+        
+        # Fillet edges parallel to Y
+        edges_to_fillet = []
+        for edge in cutout_box.Edges:
+            # Check if edge is parallel to Y
+            tangent = edge.tangentAt(edge.FirstParameter)
+            if abs(tangent.y) > 0.99: # Parallel to Y
+                edges_to_fillet.append(edge)
+                
+        if edges_to_fillet:
+            cutout_box = cutout_box.makeFillet(cutout_r, edges_to_fillet)
+            
+        hub_body = hub_body.cut(cutout_box)
     
     return {
         "Hub_Body": {
