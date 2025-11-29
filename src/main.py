@@ -100,37 +100,48 @@ def main():
         params = load_config(config_path)
 
         # Helper to export a single part dictionary
-        def build_and_export(name, parts):
+        def build_and_export(name, parts, formats=None):
             if parts:
                 log(f"Exporting {name}...")
-                export_parts(parts, name, output_dir_step, output_dir_3mf)
+                export_parts(parts, name, output_dir_step, output_dir_3mf, formats=formats)
 
         # --- 1. Solo Slot komplett (Test-Assembly) ---
         # 1 Slot mit allen Features aktiv + Deckel
         log("Building 1. Solo Slot (Full Features)...")
         features_full = {'controller_mounts': True, 'usb_mounts': True}
         solo_slot_parts = hub.create_model(params.get('hub', {}), global_dims, features=features_full)
+        
+        # Extract Modifier
+        solo_modifier = {}
+        if "Modifier" in solo_slot_parts:
+            solo_modifier["Modifier"] = solo_slot_parts.pop("Modifier")
+            
         solo_slot_parts.update(lids.create_horizontal_lid(global_dims))
         solo_slot_parts.update(lids.create_sloped_lid(global_dims))
+        
         build_and_export("1_Hub_Solo_Slot_Full", solo_slot_parts)
+        
+        # Export Modifier separately (3MF only)
+        if solo_modifier:
+            build_and_export("1_Hub_Solo_Slot_Full_Modifier", solo_modifier, formats=['3mf'])
 
         # --- 2. Slot Basic ---
         log("Building 2. Slot Basic...")
-        slot_basic = hub.create_model(params.get('hub', {}), global_dims, features={})
+        slot_basic_parts = hub.create_model(params.get('hub', {}), global_dims, features={})
         # Rename key for clarity in export
-        slot_basic = {"Slot_Basic": slot_basic["Hub_Body"]}
+        slot_basic = {"Slot_Basic": slot_basic_parts["Hub_Body"]}
         build_and_export("2_Slot_Basic", slot_basic)
 
         # --- 3. Slot Controller ---
         log("Building 3. Slot Controller...")
-        slot_ctrl = hub.create_model(params.get('hub', {}), global_dims, features={'controller_mounts': True})
-        slot_ctrl = {"Slot_Controller": slot_ctrl["Hub_Body"]}
+        slot_ctrl_parts = hub.create_model(params.get('hub', {}), global_dims, features={'controller_mounts': True})
+        slot_ctrl = {"Slot_Controller": slot_ctrl_parts["Hub_Body"]}
         build_and_export("3_Slot_Controller", slot_ctrl)
 
         # --- 4. Slot USB ---
         log("Building 4. Slot USB...")
-        slot_usb = hub.create_model(params.get('hub', {}), global_dims, features={'usb_mounts': True})
-        slot_usb = {"Slot_USB": slot_usb["Hub_Body"]}
+        slot_usb_parts = hub.create_model(params.get('hub', {}), global_dims, features={'usb_mounts': True})
+        slot_usb = {"Slot_USB": slot_usb_parts["Hub_Body"]}
         build_and_export("4_Slot_USB", slot_usb)
 
         # --- 5. Deckel Horizontal ---
@@ -165,6 +176,7 @@ def main():
             
             hub_assembly_parts = {}
             all_slot_shapes = []
+            all_modifiers = []
             
             # Calculate open sides for all slots first
             # We need the positions of all slots to determine neighbors
@@ -223,8 +235,13 @@ def main():
                 
                 # Position
                 slot_shape.translate(my_pos)
-                
                 all_slot_shapes.append(slot_shape)
+                
+                # Handle Modifier
+                if 'Modifier' in parts:
+                    mod_shape = parts['Modifier']['shape']
+                    mod_shape.translate(my_pos)
+                    all_modifiers.append(mod_shape)
                 
             # Fuse all slots
             if all_slot_shapes:
@@ -237,8 +254,23 @@ def main():
                     "color": (0.9, 0.9, 0.9)
                 }
                 
-            # Export
+            # Export Main Body
             build_and_export(export_name, hub_assembly_parts)
+
+            # Fuse modifiers and Export Separately
+            if all_modifiers:
+                fused_mods = all_modifiers[0]
+                for m in all_modifiers[1:]:
+                    fused_mods = fused_mods.fuse(m)
+                
+                modifier_parts = {
+                    f"{export_name}_Modifier": {
+                        "shape": fused_mods,
+                        "color": (0.2, 0.8, 0.2)
+                    }
+                }
+                # Export Modifier (3MF only)
+                build_and_export(f"{export_name}_Modifier", modifier_parts, formats=['3mf'])
         
         # Cleanup .FCBak files
         fcstd_dir = os.path.join(base_dir, 'output', 'fcstd')
@@ -257,10 +289,14 @@ def main():
         log(f"CRITICAL ERROR in main: {e}")
         log(traceback.format_exc())
 
-def export_parts(parts_dict, assembly_name, step_dir, threemf_dir):
+def export_parts(parts_dict, assembly_name, step_dir, threemf_dir, formats=None):
     """Helper to export a dictionary of parts."""
     import FreeCAD
     from lib import export_tools
+    
+    # Default to all formats if not specified
+    if formats is None:
+        formats = ['step', '3mf', 'fcstd']
     
     doc_name = "ExportDoc_" + assembly_name
     if FreeCAD.ActiveDocument:
@@ -275,7 +311,8 @@ def export_parts(parts_dict, assembly_name, step_dir, threemf_dir):
         color = data.get('color', (0.5, 0.5, 0.5))
         
         # 1. Export individual STEP
-        export_tools.export_to_step(shape, f"{name}", step_dir)
+        if 'step' in formats:
+            export_tools.export_to_step(shape, f"{name}", step_dir)
         
         # 2. Add to Doc for 3MF
         obj = doc.addObject("Part::Feature", name)
@@ -290,13 +327,15 @@ def export_parts(parts_dict, assembly_name, step_dir, threemf_dir):
     doc.recompute()
     
     # 3. Export Assembly 3MF
-    export_tools.export_to_3mf(export_objects, assembly_name, threemf_dir)
+    if '3mf' in formats:
+        export_tools.export_to_3mf(export_objects, assembly_name, threemf_dir)
 
     # 4. Export FreeCAD Document (.FCStd)
-    fcstd_dir = os.path.join(os.path.dirname(threemf_dir), 'fcstd')
-    if not os.path.exists(fcstd_dir):
-        os.makedirs(fcstd_dir)
-    export_tools.export_to_fcstd(doc, assembly_name, fcstd_dir)
+    if 'fcstd' in formats:
+        fcstd_dir = os.path.join(os.path.dirname(threemf_dir), 'fcstd')
+        if not os.path.exists(fcstd_dir):
+            os.makedirs(fcstd_dir)
+        export_tools.export_to_fcstd(doc, assembly_name, fcstd_dir)
 
 # Log the scope name to understand how FreeCAD runs this
 log(f"Scope name is: {__name__}")

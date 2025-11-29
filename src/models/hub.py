@@ -45,11 +45,18 @@ def create_model(params, global_dims, features={}):
     open_sides = features.get('open_sides', [])
     if open_sides:
         hub_body = _create_cable_channels(hub_body, dims, open_sides)
+        
+    # 10. Create Modifier (for printing optimization)
+    modifier = _create_modifier(dims)
     
     return {
         "Hub_Body": {
             "shape": hub_body,
             "color": (0.9, 0.9, 0.9) # Light Grey
+        },
+        "Modifier": {
+            "shape": modifier,
+            "color": (0.2, 0.8, 0.2) # Greenish
         }
     }
 
@@ -510,3 +517,13 @@ def _create_cable_channels(body, dims, open_sides):
         body = body.cut(c_all)
         
     return body
+
+def _create_modifier(dims):
+    """Creates the modifier body for the floor to save filament."""
+    # Simple hexagon corresponding to inner floor area
+    # Start 0.5mm above floor bottom (Z=0.5)
+    # Height 1.5mm (Ends at Z=2.0)
+    
+    modifier = cad_tools.create_hexagon(dims['inner_flat_to_flat'], 1.5)
+    modifier.translate(FreeCAD.Vector(0, 0, 0.5))
+    return modifier
