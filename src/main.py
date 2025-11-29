@@ -72,8 +72,12 @@ def main():
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         config_path = os.path.join(base_dir, 'config', 'parameters.json')
         output_dir_step = os.path.join(base_dir, 'output', 'step')
-        output_dir_stl = os.path.join(base_dir, 'output', 'stl')
         output_dir_3mf = os.path.join(base_dir, 'output', '3mf')
+
+        # Ensure output directories exist
+        for d in [output_dir_step, output_dir_3mf]:
+            if not os.path.exists(d):
+                os.makedirs(d)
 
         log(f"Base Dir: {base_dir}")
         
@@ -95,32 +99,58 @@ def main():
 
         params = load_config(config_path)
 
-        # --- BUILD SINGLE SLOT (FULL FEATURES) ---
-        log("Building Single Slot (Full Features)...")
-        
-        # Single slot gets all features for testing
-        features_single = {'controller_mounts': True, 'usb_mounts': True}
-        single_slot_parts = hub.create_model(params.get('hub', {}), global_dims, features=features_single)
-        
-        # Add Lids
-        single_slot_parts.update(lids.create_horizontal_lid(global_dims))
-        single_slot_parts.update(lids.create_sloped_lid(global_dims))
-        
-        if single_slot_parts:
-            export_parts(single_slot_parts, "Hub_Single_Slot", output_dir_step, output_dir_stl, output_dir_3mf)
+        # Helper to export a single part dictionary
+        def build_and_export(name, parts):
+            if parts:
+                log(f"Exporting {name}...")
+                export_parts(parts, name, output_dir_step, output_dir_3mf)
 
-        # --- BUILD HUB TYPE A & B ---
+        # --- 1. Solo Slot komplett (Test-Assembly) ---
+        # 1 Slot mit allen Features aktiv + Deckel
+        log("Building 1. Solo Slot (Full Features)...")
+        features_full = {'controller_mounts': True, 'usb_mounts': True}
+        solo_slot_parts = hub.create_model(params.get('hub', {}), global_dims, features=features_full)
+        solo_slot_parts.update(lids.create_horizontal_lid(global_dims))
+        solo_slot_parts.update(lids.create_sloped_lid(global_dims))
+        build_and_export("1_Hub_Solo_Slot_Full", solo_slot_parts)
+
+        # --- 2. Slot Basic ---
+        log("Building 2. Slot Basic...")
+        slot_basic = hub.create_model(params.get('hub', {}), global_dims, features={})
+        # Rename key for clarity in export
+        slot_basic = {"Slot_Basic": slot_basic["Hub_Body"]}
+        build_and_export("2_Slot_Basic", slot_basic)
+
+        # --- 3. Slot Controller ---
+        log("Building 3. Slot Controller...")
+        slot_ctrl = hub.create_model(params.get('hub', {}), global_dims, features={'controller_mounts': True})
+        slot_ctrl = {"Slot_Controller": slot_ctrl["Hub_Body"]}
+        build_and_export("3_Slot_Controller", slot_ctrl)
+
+        # --- 4. Slot USB ---
+        log("Building 4. Slot USB...")
+        slot_usb = hub.create_model(params.get('hub', {}), global_dims, features={'usb_mounts': True})
+        slot_usb = {"Slot_USB": slot_usb["Hub_Body"]}
+        build_and_export("4_Slot_USB", slot_usb)
+
+        # --- 5. Deckel Horizontal ---
+        log("Building 5. Lid Horizontal...")
+        lid_h = lids.create_horizontal_lid(global_dims)
+        build_and_export("5_Lid_Horizontal", lid_h)
+
+        # --- 6. Deckel Schräg ---
+        log("Building 6. Lid Sloped...")
+        lid_s = lids.create_sloped_lid(global_dims)
+        build_and_export("6_Lid_Sloped", lid_s)
+
+        # --- 7 & 8. Hub Type A & B ---
         dx, dy = calculate_grid_spacing(global_dims)
         
-        # Configuration for Type A (Shift Up) and Type B (Shift Down)
         hub_types = [
-            (hub_config.HUB_TYPE_A, 1), 
-            (hub_config.HUB_TYPE_B, -1)
+            (hub_config.HUB_TYPE_A, 1, "7_Hub_Type_A"), 
+            (hub_config.HUB_TYPE_B, -1, "8_Hub_Type_B")
         ]
         
-        # Slot Grid Definition (Row, Col)
-        # Row 0: Top, Row 1: Bottom
-        # Col 0: Left, Col 1: Mid, Col 2: Right
         slots_grid = [
             {'id': 1, 'col': 0, 'row': 1},
             {'id': 2, 'col': 1, 'row': 1},
@@ -130,8 +160,8 @@ def main():
             {'id': 6, 'col': 2, 'row': 0},
         ]
         
-        for hub_type, shift_dir in hub_types:
-            log(f"Building Hub Type {hub_type}...")
+        for hub_type, shift_dir, export_name in hub_types:
+            log(f"Building {export_name}...")
             
             hub_assembly_parts = {}
             all_slot_shapes = []
@@ -156,21 +186,32 @@ def main():
                 for s in all_slot_shapes[1:]:
                     fused_hub = fused_hub.fuse(s)
                 
-                hub_assembly_parts[f"Hub_Type_{hub_type}_Body"] = {
+                hub_assembly_parts[f"{export_name}_Body"] = {
                     "shape": fused_hub,
                     "color": (0.9, 0.9, 0.9)
                 }
                 
             # Export
-            export_parts(hub_assembly_parts, f"Hub_Type_{hub_type}", output_dir_step, output_dir_stl, output_dir_3mf)
+            build_and_export(export_name, hub_assembly_parts)
         
+        # Cleanup .FCBak files
+        fcstd_dir = os.path.join(base_dir, 'output', 'fcstd')
+        if os.path.exists(fcstd_dir):
+            log("Cleaning up .FCBak files...")
+            for f in os.listdir(fcstd_dir):
+                if f.endswith(".FCBak"):
+                    try:
+                        os.remove(os.path.join(fcstd_dir, f))
+                    except Exception as e:
+                        log(f"Warning: Could not delete backup file {f}: {e}")
+
         log("Done successfully!")
         
     except Exception as e:
         log(f"CRITICAL ERROR in main: {e}")
         log(traceback.format_exc())
 
-def export_parts(parts_dict, assembly_name, step_dir, stl_dir, threemf_dir):
+def export_parts(parts_dict, assembly_name, step_dir, threemf_dir):
     """Helper to export a dictionary of parts."""
     import FreeCAD
     from lib import export_tools
@@ -188,7 +229,7 @@ def export_parts(parts_dict, assembly_name, step_dir, stl_dir, threemf_dir):
         color = data.get('color', (0.5, 0.5, 0.5))
         
         # 1. Export individual STEP
-        export_tools.export_to_step(shape, f"{assembly_name}_{name}", step_dir)
+        export_tools.export_to_step(shape, f"{name}", step_dir)
         
         # 2. Add to Doc for 3MF
         obj = doc.addObject("Part::Feature", name)
