@@ -166,17 +166,63 @@ def main():
             hub_assembly_parts = {}
             all_slot_shapes = []
             
+            # Calculate open sides for all slots first
+            # We need the positions of all slots to determine neighbors
+            slot_positions = {}
+            for slot in slots_grid:
+                pos = calculate_slot_position(slot['col'], slot['row'], dx, dy, shift_dir)
+                slot_positions[slot['id']] = pos
+
             for slot in slots_grid:
                 # Get Features
                 features = hub_config.get_slot_features(hub_type, slot['id'])
+                
+                # Calculate neighbors
+                my_pos = slot_positions[slot['id']]
+                open_sides = []
+                
+                # Check against all other slots
+                for other_slot in slots_grid:
+                    if slot['id'] == other_slot['id']:
+                        continue
+                        
+                    other_pos = slot_positions[other_slot['id']]
+                    diff = other_pos.sub(my_pos)
+                    dist = diff.Length
+                    
+                    # Check if neighbor (distance approx flat_to_flat_outer = dy)
+                    # Use a tolerance
+                    if abs(dist - dy) < 2.0:
+                        # Calculate angle
+                        angle_deg = math.degrees(math.atan2(diff.y, diff.x))
+                        if angle_deg < 0:
+                            angle_deg += 360.0
+                            
+                        # Map to side index
+                        # Side 0: 30, Side 1: 90, ...
+                        # We allow some angular tolerance
+                        side_angles = {
+                            0: 30,
+                            1: 90,
+                            2: 150,
+                            3: 210,
+                            4: 270,
+                            5: 330
+                        }
+                        
+                        for s_idx, s_angle in side_angles.items():
+                            if abs(angle_deg - s_angle) < 5.0:
+                                open_sides.append(s_idx)
+                                break
+                
+                features['open_sides'] = open_sides
                 
                 # Create Part
                 parts = hub.create_model(params.get('hub', {}), global_dims, features=features)
                 slot_shape = parts['Hub_Body']['shape']
                 
                 # Position
-                pos = calculate_slot_position(slot['col'], slot['row'], dx, dy, shift_dir)
-                slot_shape.translate(pos)
+                slot_shape.translate(my_pos)
                 
                 all_slot_shapes.append(slot_shape)
                 

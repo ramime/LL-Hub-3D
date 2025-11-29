@@ -7,6 +7,10 @@ def create_model(params, global_dims, features={}):
     """
     Creates the Hub model.
     Returns a dictionary of parts: {'part_name': shape}
+    features: dict of enabled features.
+        - controller_mounts: bool
+        - usb_mounts: bool
+        - open_sides: list of int (0-5) - indices of walls to cut cable channels into.
     """
     # Extract dimensions
     dims = _extract_dimensions(global_dims)
@@ -36,6 +40,11 @@ def create_model(params, global_dims, features={}):
     # 8. Add USB Mounts & Cutout (Optional)
     if features.get('usb_mounts', False):
         hub_body = _create_usb_features(hub_body, dims)
+
+    # 9. Add Cable Channels (Cutouts)
+    open_sides = features.get('open_sides', [])
+    if open_sides:
+        hub_body = _create_cable_channels(hub_body, dims, open_sides)
     
     return {
         "Hub_Body": {
@@ -408,4 +417,96 @@ def _create_usb_features(body, dims):
         
     body = body.cut(box)
     
+    body = body.cut(box)
+    
+    return body
+
+def _create_cable_channels(body, dims, open_sides):
+    """Cuts cable channels into the specified walls."""
+    # Dimensions from user drawing
+    width = 10.0
+    total_height = 7.0
+    # derived from 135 degree angle (45 degree slope)
+    # tan(45) = 1, so roof height = half_width = 5.0
+    roof_height = width / 2.0 
+    side_height = total_height - roof_height # 2.0
+    
+    channel_depth = dims['wall_thickness'] * 2 
+    
+    # Create Profile in YZ plane (centered on Y)
+    # Points: Bottom-Left, Bottom-Right, Vertical-Right, Top-Peak, Vertical-Left
+    y_half = width / 2.0
+    
+    points = [
+        FreeCAD.Vector(0, -y_half, 0),
+        FreeCAD.Vector(0, y_half, 0),
+        FreeCAD.Vector(0, y_half, side_height),
+        FreeCAD.Vector(0, 0, total_height),
+        FreeCAD.Vector(0, -y_half, side_height)
+    ]
+    
+    # Create Prism (Extrude along X)
+    # We create a face on X=0 plane and extrude
+    # Actually cad_tools.create_prism_from_points expects points in a plane and an extrusion vector.
+    # But my points are already 3D vectors on X=0.
+    # Let's just use Part.makePolygon and extrude.
+    
+    wire = Part.makePolygon(points + [points[0]])
+    face = Part.Face(wire)
+    cutter = face.extrude(FreeCAD.Vector(channel_depth, 0, 0))
+    
+    # Center the cutter on X (Depth)
+    cutter.translate(FreeCAD.Vector(-channel_depth/2, 0, 0))
+    
+    # Lift to floor height
+    cutter.translate(FreeCAD.Vector(0, 0, dims['floor_height']))
+    
+    dist = dims['outer_flat_to_flat'] / 2
+    
+    # Calculate side length (inner)
+    # inner_flat_to_flat = 2 * apothem
+    # side_length = inner_flat_to_flat / sqrt(3)
+    # half_side = side_length / 2
+    
+    h = dims['inner_flat_to_flat'] / (2 * math.sqrt(3))
+    
+    # Offsets for each side (shift along the wall tangent)
+    # Calculated based on user requirements:
+    # Side 1 (N): 4mm from Right (-h). -> -h + 4 + 5 = -h + 9
+    # Side 4 (S): Aligned with N. -> h - 9
+    # Side 0 (NE): 6mm from South (-h). -> -h + 6 + 5 = -h + 11
+    # Side 2 (NW): 6mm from South (+h). -> h - 6 - 5 = h - 11
+    # Side 3 (SW): Aligned with NE. -> h - 11
+    # Side 5 (SE): Aligned with NW. -> -h + 11
+    
+    side_offsets = {
+        0: -h + 11,
+        1: -h + 9,
+        2: h - 11,
+        3: h - 11,
+        4: h - 9,
+        5: -h + 11
+    }
+    
+    compound_cutters = []
+    
+    for side_idx in open_sides:
+        angle_deg = 30 + (side_idx * 60)
+        offset = side_offsets.get(side_idx, 0)
+        
+        c = cutter.copy()
+        # Translate to the wall distance
+        c.translate(FreeCAD.Vector(dist, offset, 0))
+        
+        # Rotate around Z
+        c.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle_deg)
+        
+        compound_cutters.append(c)
+        
+    if compound_cutters:
+        c_all = compound_cutters[0]
+        for c in compound_cutters[1:]:
+            c_all = c_all.fuse(c)
+        body = body.cut(c_all)
+        
     return body
