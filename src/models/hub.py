@@ -350,7 +350,7 @@ def _create_usb_features(body, dims):
     
     spcb_outer_r = 2.0
     spcb_inner_r = 1.0
-    spcb_height = 2.0
+    spcb_height = 1.0
     
     # Solid
     solid = Part.makeCylinder(spcb_outer_r, spcb_height)
