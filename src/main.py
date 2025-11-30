@@ -112,7 +112,6 @@ def main():
             'usb_mounts': True, 
             'conn_ne': True,
             'conn_nw': True,
-            'conn_e': False,
             'conn_sw': True,
             'conn_se': True
         }

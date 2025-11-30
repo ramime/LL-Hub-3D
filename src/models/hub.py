@@ -51,8 +51,7 @@ def create_model(params, global_dims, features={}):
         hub_body = _create_connector_ne(hub_body, dims)
     if features.get('conn_nw', False):
         hub_body = _create_connector_nw(hub_body, dims)
-    if features.get('conn_e', False):
-        hub_body = _create_connector_e(hub_body, dims)
+    # East Connector removed for cleanup
     if features.get('conn_sw', False):
         hub_body = _create_connector_sw(hub_body, dims)
     if features.get('conn_se', False):
@@ -318,35 +317,7 @@ def _create_connector_nw(body, dims):
     
     return body.fuse(conn_nw)
 
-def _create_connector_e(body, dims):
-    """Adds East Connector (Side 5)."""
-    R = dims['outer_flat_to_flat'] / math.sqrt(3)
-    apothem = dims['outer_flat_to_flat'] / 2.0
-    
-    v0 = FreeCAD.Vector(R, 0, 0)
-    v300 = FreeCAD.Vector(R/2, -apothem, 0)
-    
-    # Position: 10mm from V300 towards V0
-    dist_e = 10.0
-    dir_e = v0.sub(v300).normalize()
-    pos_e = v300.add(dir_e.multiply(dist_e))
-    
-    # Shift Inwards (-X)
-    shift_x_e = -1.0
-    pos_e.x += shift_x_e
-    
-    length = dims['pin_length']
-    prof_e = _get_connector_profile(dims, clearance=0.0)
-    prof_e.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(1,0,0), 90) # XZ
-    prof_e.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), 90) # YZ
-    conn_e = prof_e.extrude(FreeCAD.Vector(length, 0, 0)) # +X
-    conn_e.translate(pos_e)
-    
-    # Cut
-    inner_prism = _get_inner_prism(dims)
-    conn_e = conn_e.cut(inner_prism)
-    
-    return body.fuse(conn_e)
+# _create_connector_e removed
 
 def _get_connector_profile(dims, clearance=0.0):
     """Creates the 2D profile for the connector rail."""
