@@ -112,7 +112,9 @@ def main():
             'usb_mounts': True, 
             'conn_ne': True,
             'conn_nw': True,
-            'conn_e': True
+            'conn_e': False,
+            'conn_sw': True,
+            'conn_se': True
         }
         solo_slot_parts = hub.create_model(params.get('hub', {}), global_dims, features=features_full)
         

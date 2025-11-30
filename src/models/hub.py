@@ -53,6 +53,10 @@ def create_model(params, global_dims, features={}):
         hub_body = _create_connector_nw(hub_body, dims)
     if features.get('conn_e', False):
         hub_body = _create_connector_e(hub_body, dims)
+    if features.get('conn_sw', False):
+        hub_body = _create_connector_sw(hub_body, dims)
+    if features.get('conn_se', False):
+        hub_body = _create_connector_se(hub_body, dims)
 
     # 11. Create Modifier (for printing optimization)
     modifier = _create_modifier(dims)
@@ -67,6 +71,148 @@ def create_model(params, global_dims, features={}):
             "color": (0.2, 0.8, 0.2) # Greenish
         }
     }
+
+# ... (Previous functions unchanged) ...
+
+def _create_connector_sw(body, dims):
+    """Adds SW Female Connector (Side 3) - Counterpart to NE."""
+    # Side 3 connects V180 and V240.
+    # Counterpart to NE (Side 0).
+    # NE Position: 15mm from V0 towards V60. Shift -4.0 Y.
+    # SW Position: 15mm from V240 towards V180. Shift +4.0 Y (Symmetry).
+    
+    R = dims['outer_flat_to_flat'] / math.sqrt(3)
+    apothem = dims['outer_flat_to_flat'] / 2.0
+    
+    v180 = FreeCAD.Vector(-R, 0, 0)
+    v240 = FreeCAD.Vector(-R/2, -apothem, 0)
+    
+    dist_sw = 15.0
+    dir_sw = v180.sub(v240).normalize()
+    pos_sw = v240.add(dir_sw.multiply(dist_sw))
+    
+    # Shift (+Y)
+    pos_sw.y += 4.0
+    
+    # Create Housing (Block)
+    # 4mm high (Z), large enough to contain the cutout.
+    # We can use a simple box or prism, fused to the inside.
+    # For simplicity, let's use a box oriented with the wall?
+    # Or just a large block that we cut later?
+    # Let's use a cylinder or box at the position.
+    # Housing Height: 4mm (Z).
+    # Size: 10x10?
+    # Housing Height: 4mm (Z).
+    # Size: 10x10?
+    housing_h = 4.0
+    housing_shape = Part.makeBox(12, 12, housing_h)
+    # Center it at pos_sw
+    housing_shape.translate(FreeCAD.Vector(-6, -6, 0))
+    housing_shape.translate(pos_sw)
+    
+    # Trim Housing to Outer Hexagon (so it doesn't protrude outwards)
+    outer_prism = _get_outer_prism(dims)
+    housing_shape = housing_shape.common(outer_prism)
+    
+    body = body.fuse(housing_shape)
+    
+    # Create Cutout (Female Profile)
+    # Clearance 0.15mm
+    prof_sw = _get_connector_profile(dims, clearance=0.15)
+    prof_sw.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(1,0,0), 90) # Y->Z
+    
+    # Extrusion Direction:
+    # NE was +Y. SW should be -Y?
+    # NE Pin points +Y (Outwards from Side 0).
+    # SW Hole points -Y (Inwards to Side 3)?
+    # Wait, Side 3 Normal is (-X, -Y).
+    # If NE Pin is +Y, it enters SW Hole which must be aligned with +Y.
+    # So the Hole is a "tunnel" along Y axis.
+    # So we extrude along Y?
+    # Or rather, the cutout shape is the shape of the pin that enters it.
+    # The pin is oriented +Y. So the cutout is also +Y.
+    length = 20.0
+    # We need to cut "through" the wall and housing.
+    # So we create a long shape.
+    cutout_sw = prof_sw.extrude(FreeCAD.Vector(0, length, 0)) # +Y
+    # Center/Position it.
+    # The Pin is at pos_ne (relative to Hub A).
+    # The Hole is at pos_sw (relative to Hub B).
+    # If aligned, the pin shape matches the hole shape.
+    # So we place the cutout at pos_sw.
+    cutout_sw.translate(pos_sw)
+    # We might need to extend it backwards (-Y) to cut fully through the wall?
+    # The pin comes from "outside".
+    # So we need to ensure the cutout reaches the outside.
+    # pos_sw is on the wall line (approx).
+    # So we should shift it slightly -Y to ensure clean cut?
+    # Or extend extrusion in both directions?
+    # Let's translate -10 Y and extrude 40 Y?
+    cutout_sw.translate(FreeCAD.Vector(0, -10, 0))
+    cutout_sw = prof_sw.extrude(FreeCAD.Vector(0, 40, 0)) # Re-extrude longer
+    cutout_sw.translate(pos_sw)
+    cutout_sw.translate(FreeCAD.Vector(0, -20, 0)) # Center roughly
+    
+    body = body.cut(cutout_sw)
+    
+    return body
+
+def _create_connector_se(body, dims):
+    """Adds SE Female Connector (Side 5) - Counterpart to NW."""
+    # Side 5 connects V300 and V0.
+    # Counterpart to NW (Side 2).
+    # NW Position: Mirrored NE.
+    # SE Position: Mirrored SW (X -> -X).
+    
+    # Calculate SW Position again
+    R = dims['outer_flat_to_flat'] / math.sqrt(3)
+    apothem = dims['outer_flat_to_flat'] / 2.0
+    v180 = FreeCAD.Vector(-R, 0, 0)
+    v240 = FreeCAD.Vector(-R/2, -apothem, 0)
+    dist_sw = 15.0
+    dir_sw = v180.sub(v240).normalize()
+    pos_sw = v240.add(dir_sw.multiply(dist_sw))
+    pos_sw.y += 4.0
+    
+    # Mirror to SE (X -> -X)
+    pos_se = FreeCAD.Vector(-pos_sw.x, pos_sw.y, 0)
+    
+    # Housing
+    housing_h = 4.0
+    housing_shape = Part.makeBox(12, 12, housing_h)
+    housing_shape.translate(FreeCAD.Vector(-6, -6, 0))
+    housing_shape.translate(pos_se)
+    
+    # Trim Housing
+    outer_prism = _get_outer_prism(dims)
+    housing_shape = housing_shape.common(outer_prism)
+    
+    body = body.fuse(housing_shape)
+    
+    # Cutout
+    prof_se = _get_connector_profile(dims, clearance=0.15)
+    prof_se.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(1,0,0), 90) # Y->Z
+    
+    # Extrusion
+    # NW Pin was +Y. SE Hole should be +Y?
+    # Wait, NW Pin is +Y.
+    # SE is Side 5 (Bottom-Right).
+    # If NW Pin enters SE Hole...
+    # NW Pin is at Top-Left.
+    # SE Hole is at Bottom-Right.
+    # They don't mate directly?
+    # Side 2 (NW) mates with Side 5 (SE)?
+    # Side 2 Normal (-1, 1). Side 5 Normal (1, -1). Yes, they are parallel/opposite.
+    # So NW Pin (+Y) enters SE Hole.
+    # So SE Hole must be +Y aligned.
+    
+    cutout_se = prof_se.extrude(FreeCAD.Vector(0, 40, 0))
+    cutout_se.translate(pos_se)
+    cutout_se.translate(FreeCAD.Vector(0, -20, 0))
+    
+    body = body.cut(cutout_se)
+    
+    return body
 
 # ... (Previous functions unchanged) ...
 
@@ -89,6 +235,26 @@ def _get_inner_prism(dims):
     inner_prism = inner_face.extrude(FreeCAD.Vector(0, 0, 20))
     inner_prism.translate(FreeCAD.Vector(0, 0, -5))
     return inner_prism
+
+def _get_outer_prism(dims):
+    """Creates the outer hexagon prism for trimming housings."""
+    outer_flat_to_flat = dims['outer_flat_to_flat']
+    r_outer = outer_flat_to_flat / math.sqrt(3)
+    
+    outer_shape = Part.makePolygon([
+        FreeCAD.Vector(r_outer, 0, 0),
+        FreeCAD.Vector(r_outer/2, outer_flat_to_flat/2, 0),
+        FreeCAD.Vector(-r_outer/2, outer_flat_to_flat/2, 0),
+        FreeCAD.Vector(-r_outer, 0, 0),
+        FreeCAD.Vector(-r_outer/2, -outer_flat_to_flat/2, 0),
+        FreeCAD.Vector(r_outer/2, -outer_flat_to_flat/2, 0),
+        FreeCAD.Vector(r_outer, 0, 0)
+    ])
+    outer_face = Part.Face(outer_shape)
+    # Extrude high enough to cover the housing (Z=0 to Z=4+)
+    outer_prism = outer_face.extrude(FreeCAD.Vector(0, 0, 20))
+    outer_prism.translate(FreeCAD.Vector(0, 0, -5))
+    return outer_prism
 
 def _create_connector_ne(body, dims):
     """Adds NE Connector (Side 0)."""
