@@ -83,3 +83,34 @@ def create_prism_from_points(points, extrusion_vec):
     face = Part.Face(wire)
     prism = face.extrude(extrusion_vec)
     return prism
+
+def cut_all(base_shape, tools):
+    """
+    Cuts all tool shapes from the base shape.
+    """
+    result = base_shape
+    for tool in tools:
+        result = result.cut(tool)
+    return result
+
+def fuse_all(base_shape, tools):
+    """
+    Fuses all tool shapes to the base shape.
+    """
+    result = base_shape
+    for tool in tools:
+        result = result.fuse(tool)
+    return result
+
+def create_cylinder_at(radius, height, position, direction=None):
+    """
+    Creates a cylinder at a specific position.
+    """
+    cyl = Part.makeCylinder(radius, height)
+    if direction:
+        # Default cylinder is along Z. If direction is needed, rotation would be required.
+        # For now, we assume Z axis for cylinders in this project mostly.
+        pass
+    cyl.translate(position)
+    return cyl
+

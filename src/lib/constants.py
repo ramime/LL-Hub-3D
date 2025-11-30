@@ -1,0 +1,35 @@
+"""
+Central location for constant values used across the project.
+"""
+
+# Lid Dimensions
+LID_THICKNESS = 1.8
+LID_RECESS_WIDTH = 1.0
+LID_CLEARANCE = 0.2
+
+# Slope Dimensions
+SLOPE_LENGTH_Y = 29.0
+SLOPE_ANGLE_DEG = 80.0
+
+# Vertical Dimensions
+FLOOR_HEIGHT = 2.0
+WALL_HEIGHT = 14.0
+Z_LID_BOTTOM = FLOOR_HEIGHT + WALL_HEIGHT - LID_THICKNESS # 14.2
+
+# Mounting Pillars
+PILLAR_RADIUS_OUTER = 3.0
+PILLAR_RADIUS_INNER = 1.0
+PILLAR_MOUNTING_RADIUS = 40.0
+
+# Magnets
+MAGNET_RECESS_REMAINING_MATERIAL = 0.6
+MAGNET_RECESS_RADIUS = 6.0
+
+# Pogo Pin Cutout
+POGO_WIDTH = 4.7
+POGO_HEIGHT = 17.3
+POGO_Y_START = 8.0
+
+# Grid System
+GRID_NEIGHBOR_TOLERANCE = 2.0
+GRID_ANGLE_TOLERANCE = 5.0

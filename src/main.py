@@ -4,11 +4,6 @@ import json
 import traceback
 import math
 
-# Debug: Write to a file immediately to prove execution started
-# debug_log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'debug_exec.txt')
-# with open(debug_log_path, 'w') as f:
-#     f.write("Script execution started.\n")
-
 # Add the current directory to path so we can import from lib
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
@@ -16,19 +11,16 @@ sys.path.append(current_dir)
 try:
     import FreeCAD
 except ImportError:
-    # with open(debug_log_path, 'a') as f:
-    #     f.write("Error: FreeCAD module not found.\n")
     sys.exit(1)
 
 def log(message):
     """Log to console."""
     msg = str(message) + "\n"
     FreeCAD.Console.PrintMessage(msg)
-    # with open(debug_log_path, 'a') as f:
-    #     f.write(msg)
 
 try:
     from lib import cad_tools, export_tools
+    from lib.grid_system import GridSystem
     from models import hub, lids, pogo_attachment
     import hub_config
     log("Libraries imported successfully.")
@@ -40,30 +32,6 @@ except Exception as e:
 def load_config(config_path):
     with open(config_path, 'r') as f:
         return json.load(f)
-
-def calculate_grid_spacing(global_dims):
-    """Calculates dx and dy for the hexagonal grid."""
-    # d = flat_to_flat (inner) + 2 * rim (0.5)
-    flat_to_flat_outer = global_dims['hub']['outer_flat_to_flat_mm'] + 1.0 
-    circumradius_outer = flat_to_flat_outer / math.sqrt(3)
-    
-    # Horizontal spacing (Point-to-Point orientation would be different, 
-    # but here we have Flat-Top orientation)
-    # Col spacing = 1.5 * R
-    dx = 1.5 * circumradius_outer
-    dy = flat_to_flat_outer
-    return dx, dy
-
-def calculate_slot_position(col, row, dx, dy, shift_dir):
-    """Calculates the (x, y) position for a slot."""
-    pos_x = col * dx
-    pos_y = -row * dy # Row 0 is top, Row 1 is below
-    
-    # Apply Column Shift for odd columns (Column 1 is the middle one)
-    if col == 1: 
-        pos_y += shift_dir * (dy / 2)
-        
-    return FreeCAD.Vector(pos_x, pos_y, 0)
 
 def main():
     try:
@@ -97,6 +65,9 @@ def main():
             return
 
         params = load_config(config_path)
+
+        # Initialize Grid System
+        grid = GridSystem(global_dims)
 
         # Helper to export a single part dictionary
         def build_and_export(name, parts, formats=None):
@@ -161,7 +132,6 @@ def main():
         build_and_export("6_Lid_Sloped", lid_s)
 
         # --- 7 & 8. Hub Type A & B ---
-        dx, dy = calculate_grid_spacing(global_dims)
         
         hub_types = [
             (hub_config.HUB_TYPE_A, 1, "7_Hub_Type_A"), 
@@ -184,76 +154,34 @@ def main():
             all_slot_shapes = []
             all_modifiers = []
             
-            # Calculate open sides for all slots first
-            # We need the positions of all slots to determine neighbors
-            slot_positions = {}
-            for slot in slots_grid:
-                pos = calculate_slot_position(slot['col'], slot['row'], dx, dy, shift_dir)
-                slot_positions[slot['id']] = pos
+            # Find neighbors using GridSystem
+            neighbors_map = grid.find_neighbors(slots_grid, shift_dir)
 
             for slot in slots_grid:
                 # Get Features
                 features = hub_config.get_slot_features(hub_type, slot['id'])
                 
-                # Calculate neighbors
-                my_pos = slot_positions[slot['id']]
-                open_sides = []
-                
-                # Check against all other slots
-                for other_slot in slots_grid:
-                    if slot['id'] == other_slot['id']:
-                        continue
-                        
-                    other_pos = slot_positions[other_slot['id']]
-                    diff = other_pos.sub(my_pos)
-                    dist = diff.Length
-                    
-                    # Check if neighbor (distance approx flat_to_flat_outer = dy)
-                    # Use a tolerance
-                    if abs(dist - dy) < 2.0:
-                        # Calculate angle
-                        angle_deg = math.degrees(math.atan2(diff.y, diff.x))
-                        if angle_deg < 0:
-                            angle_deg += 360.0
-                            
-                        # Map to side index
-                        # Side 0: 30, Side 1: 90, ...
-                        # We allow some angular tolerance
-                        side_angles = {
-                            0: 30,
-                            1: 90,
-                            2: 150,
-                            3: 210,
-                            4: 270,
-                            5: 330
-                        }
-                        
-                        for s_idx, s_angle in side_angles.items():
-                            if abs(angle_deg - s_angle) < 5.0:
-                                open_sides.append(s_idx)
-                                break
-                
-                features['open_sides'] = open_sides
+                # Set open sides from neighbors map
+                features['open_sides'] = neighbors_map.get(slot['id'], [])
                 
                 # Create Part
                 parts = hub.create_model(params.get('hub', {}), global_dims, features=features)
                 slot_shape = parts['Hub_Body']['shape']
                 
                 # Position
-                slot_shape.translate(my_pos)
+                pos = grid.get_slot_position(slot['col'], slot['row'], shift_dir)
+                slot_shape.translate(pos)
                 all_slot_shapes.append(slot_shape)
                 
                 # Handle Modifier
                 if 'Modifier' in parts:
                     mod_shape = parts['Modifier']['shape']
-                    mod_shape.translate(my_pos)
+                    mod_shape.translate(pos)
                     all_modifiers.append(mod_shape)
                 
             # Fuse all slots
             if all_slot_shapes:
-                fused_hub = all_slot_shapes[0]
-                for s in all_slot_shapes[1:]:
-                    fused_hub = fused_hub.fuse(s)
+                fused_hub = cad_tools.fuse_all(all_slot_shapes[0], all_slot_shapes[1:])
                 
                 hub_assembly_parts[f"{export_name}_Body"] = {
                     "shape": fused_hub,
@@ -265,9 +193,7 @@ def main():
 
             # Fuse modifiers and Export Separately
             if all_modifiers:
-                fused_mods = all_modifiers[0]
-                for m in all_modifiers[1:]:
-                    fused_mods = fused_mods.fuse(m)
+                fused_mods = cad_tools.fuse_all(all_modifiers[0], all_modifiers[1:])
                 
                 modifier_parts = {
                     f"{export_name}_Modifier": {
