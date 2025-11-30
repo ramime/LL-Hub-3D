@@ -32,31 +32,36 @@ def get_slot_features(hub_type, slot_id):
     """
     slot_type = HUB_SLOT_CONFIG.get(hub_type, {}).get(slot_id, SLOT_BASIC)
     
-    # Connector Flags
-    conn_ne = False
-    conn_nw = False
-    conn_se = False
-    conn_sw = False
+    # Initialize connectors with defaults (N/S)
+    conns = _get_connectors(hub_type, slot_id)
     
     # Hub Type A Configuration
     if hub_type == HUB_TYPE_A:
         if slot_id == 5:
-            conn_ne = True
-            conn_nw = True
+            # Old NE (0) -> New 2
+            # Old NW (2) -> New 6
+            conns[2] = 'male'
+            conns[6] = 'male'
         elif slot_id == 1:
-            conn_se = True
+            # Old SE (5) -> New 3
+            conns[3] = 'female'
         elif slot_id == 3:
-            conn_sw = True
+            # Old SW (3) -> New 5
+            conns[5] = 'female'
             
     # Hub Type B Configuration
     elif hub_type == HUB_TYPE_B:
         if slot_id == 4:
-            conn_ne = True
+            # Old NE (0) -> New 2
+            conns[2] = 'male'
         elif slot_id == 6:
-            conn_nw = True
+            # Old NW (2) -> New 6
+            conns[6] = 'male'
         elif slot_id == 2:
-            conn_se = True
-            conn_sw = True
+            # Old SE (5) -> New 3
+            # Old SW (3) -> New 5
+            conns[3] = 'female'
+            conns[5] = 'female'
 
     # USB Configuration
     usb_enabled = False
@@ -78,11 +83,7 @@ def get_slot_features(hub_type, slot_id):
             'enabled': usb_enabled,
             'angle': usb_angle
         },
-        'conn_ne': conn_ne,
-        'conn_nw': conn_nw,
-        'conn_se': conn_se,
-        'conn_sw': conn_sw,
-        'connectors': _get_connectors(hub_type, slot_id)
+        'connectors': conns
     }
 
 def _get_connectors(hub_type, slot_id):

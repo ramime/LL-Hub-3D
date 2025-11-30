@@ -61,15 +61,15 @@ class GridSystem:
                     if angle_deg < 0:
                         angle_deg += 360.0
                         
-                    # Map to side index
-                    # Side 0: 30, Side 1: 90, ...
+                    # Map to side index (1-based, Clockwise from North)
+                    # 1: 90 (N), 2: 30 (NE), 3: 330 (SE), 4: 270 (S), 5: 210 (SW), 6: 150 (NW)
                     side_angles = {
-                        0: 30,
                         1: 90,
-                        2: 150,
-                        3: 210,
+                        2: 30,
+                        3: 330,
                         4: 270,
-                        5: 330
+                        5: 210,
+                        6: 150
                     }
                     
                     for s_idx, s_angle in side_angles.items():

@@ -247,31 +247,10 @@ def create_connectors(body, dims, connectors_config):
             pos = FreeCAD.Vector(0, apothem, 0)
             rotation = 0 # Pointing +Y
             
-            # Male: Shift -4.0 Y (Inwards)
-            # Female: Shift +4.0 Y (Inwards? No, Side 1 Normal is +Y. Inwards is -Y.)
-            # Wait.
-            # Side 1 Normal is (0, 1).
-            # If Male, it points +Y. We shift it -4.0 Y so it protrudes.
-            # If Female, it accepts a pin from +Y.
-            
             if ctype == 'male':
                 pos.y -= 4.0
                 _create_generic_male(body, dims, pos, rotation)
             elif ctype == 'female':
-                # Female Housing
-                # Shift -4.0 Y (Inwards) to match Male position?
-                # No, Female Housing is inside the wall.
-                # If Male is at Y = apothem - 4.
-                # Female Housing should be centered there?
-                # Let's assume symmetry.
-                # If Side 1 is Female, it connects to Side 4 Male.
-                # Side 4 Male is at Y = -apothem + 4.
-                # Side 1 Female is at Y = apothem - 4?
-                # Let's stick to the "dy-M" logic mentioned in the prompt.
-                # "M=32.0, F=dy-M".
-                # dy = flat_to_flat_outer.
-                # If we are at Side 1.
-                # Let's just place it at the wall and shift inwards.
                 pos.y -= 4.0
                 _create_generic_female(body, dims, pos, rotation)
                 
@@ -285,6 +264,29 @@ def create_connectors(body, dims, connectors_config):
             elif ctype == 'female':
                 pos.y += 4.0
                 _create_generic_female(body, dims, pos, rotation)
+                
+        # New 1-based Numbering Mapping
+        # 2: NE (Old 0)
+        # 3: SE (Old 5)
+        # 5: SW (Old 3)
+        # 6: NW (Old 2)
+        
+        elif side == 2: # NE
+             if ctype == 'male':
+                 body = create_connector_ne(body, dims)
+             # Add female support if needed later
+             
+        elif side == 6: # NW
+             if ctype == 'male':
+                 body = create_connector_nw(body, dims)
+                 
+        elif side == 5: # SW
+             if ctype == 'female':
+                 body = create_connector_sw(body, dims)
+                 
+        elif side == 3: # SE
+             if ctype == 'female':
+                 body = create_connector_se(body, dims)
 
     return body
 

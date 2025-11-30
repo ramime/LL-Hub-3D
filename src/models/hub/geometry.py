@@ -166,20 +166,39 @@ def create_cable_channels(body, dims, open_sides):
     h = dims['inner_flat_to_flat'] / (2 * math.sqrt(3))
     
     # Offsets for each side (shift along the wall tangent)
+    # Offsets for each side (shift along the wall tangent)
+    # Mapped from old 0-5 to new 1-6 (Clockwise from North)
+    # 1 (N) <- Old 1
+    # 2 (NE) <- Old 0
+    # 3 (SE) <- Old 5
+    # 4 (S) <- Old 4
+    # 5 (SW) <- Old 3
+    # 6 (NW) <- Old 2
+    
     side_offsets = {
-        0: -h + 11,
         1: -h + 9,
-        2: h - 11,
-        3: h - 11,
+        2: -h + 11,
+        3: -h + 11,
         4: -h + 9,
-        5: -h + 11
+        5: h - 11,
+        6: h - 11
+    }
+    
+    # Angle Mapping
+    side_angles = {
+        1: 90,
+        2: 30,
+        3: 330,
+        4: 270,
+        5: 210,
+        6: 150
     }
     
     for side_idx in open_sides:
         c = cutter.copy()
         
         # 1. Rotate to side angle
-        angle = side_idx * 60 + 30
+        angle = side_angles.get(side_idx, 0)
         c.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle)
         
         # 2. Move to wall distance

@@ -81,10 +81,14 @@ def main():
         features_full = {
             'controller_mounts': True, 
             'usb_mounts': True, 
-            'conn_ne': True,
-            'conn_nw': True,
-            'conn_sw': True,
-            'conn_se': True
+            'connectors': {
+                1: 'male',
+                2: 'male', # NE
+                3: 'female', # SE
+                4: 'female',
+                5: 'female', # SW
+                6: 'male' # NW
+            }
         }
         solo_slot_parts = hub.create_model(params.get('hub', {}), global_dims, features=features_full)
         
@@ -165,13 +169,7 @@ def main():
                 neighbors = neighbors_map.get(slot['id'], [])
                 features['open_sides'] = neighbors
                 
-                # Filter connectors: Only allow connectors on sides that have neighbors
-                if 'connectors' in features:
-                    valid_connectors = {}
-                    for side, ctype in features['connectors'].items():
-                        if side in neighbors:
-                            valid_connectors[side] = ctype
-                    features['connectors'] = valid_connectors
+                # Create Part
                 
                 # Create Part
                 parts = hub.create_model(params.get('hub', {}), global_dims, features=features)

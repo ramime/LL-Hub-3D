@@ -54,16 +54,6 @@ def create_model(params, global_dims, features={}):
         hub_body = geometry.create_cable_channels(hub_body, dims, open_sides)
         
     # 10. Add Connectors (Configurable)
-    if features.get('conn_ne', False):
-        hub_body = connectors.create_connector_ne(hub_body, dims)
-    if features.get('conn_nw', False):
-        hub_body = connectors.create_connector_nw(hub_body, dims)
-    if features.get('conn_sw', False):
-        hub_body = connectors.create_connector_sw(hub_body, dims)
-    if features.get('conn_se', False):
-        hub_body = connectors.create_connector_se(hub_body, dims)
-        
-    # 10b. Add Generic Connectors (Side 1/4 etc.)
     if 'connectors' in features:
         hub_body = connectors.create_connectors(hub_body, dims, features['connectors'])
 
