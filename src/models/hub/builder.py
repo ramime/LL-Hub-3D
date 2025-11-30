@@ -40,8 +40,13 @@ def create_model(params, global_dims, features={}):
         hub_body = feat_module.create_controller_features(hub_body, dims)
         
     # 8. Add USB Mounts & Cutout (Optional)
+    usb_conf = features.get('usb_config', {'enabled': False, 'angle': 0.0})
+    # Backward compatibility if usb_mounts boolean still exists in some old code paths (optional)
     if features.get('usb_mounts', False):
-        hub_body = feat_module.create_usb_features(hub_body, dims)
+         usb_conf = {'enabled': True, 'angle': 0.0}
+
+    if usb_conf.get('enabled', False):
+        hub_body = feat_module.create_usb_features(hub_body, dims, angle=usb_conf.get('angle', 0.0))
 
     # 9. Add Cable Channels (Cutouts)
     open_sides = features.get('open_sides', [])

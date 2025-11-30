@@ -5,6 +5,8 @@
 SLOT_BASIC = 'basic'
 SLOT_CONTROLLER = 'controller'
 SLOT_USB = 'usb'
+SLOT_USB_LEFT = 'usb_left'   # SW (-60 deg)
+SLOT_USB_RIGHT = 'usb_right' # SE (+60 deg)
 
 # Hub Types
 HUB_TYPE_A = 'A'
@@ -16,11 +18,11 @@ HUB_TYPE_B = 'B'
 HUB_SLOT_CONFIG = {
     HUB_TYPE_A: {
         2: SLOT_CONTROLLER,
-        3: SLOT_USB
+        1: SLOT_USB_LEFT
     },
     HUB_TYPE_B: {
         5: SLOT_CONTROLLER,
-        3: SLOT_USB
+        3: SLOT_USB_RIGHT
     }
 }
 
@@ -56,9 +58,26 @@ def get_slot_features(hub_type, slot_id):
             conn_se = True
             conn_sw = True
 
+    # USB Configuration
+    usb_enabled = False
+    usb_angle = 0.0
+    
+    if slot_type == SLOT_USB:
+        usb_enabled = True
+        usb_angle = 0.0
+    elif slot_type == SLOT_USB_LEFT:
+        usb_enabled = True
+        usb_angle = -60.0 # SW (Clockwise)
+    elif slot_type == SLOT_USB_RIGHT:
+        usb_enabled = True
+        usb_angle = 60.0 # SE (Counter-Clockwise)
+
     return {
         'controller_mounts': (slot_type == SLOT_CONTROLLER),
-        'usb_mounts': (slot_type == SLOT_USB),
+        'usb_config': {
+            'enabled': usb_enabled,
+            'angle': usb_angle
+        },
         'conn_ne': conn_ne,
         'conn_nw': conn_nw,
         'conn_se': conn_se,

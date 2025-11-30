@@ -133,8 +133,10 @@ def create_controller_features(body, dims):
         
     return body
 
-def create_usb_features(body, dims):
-    """Adds USB mounting pillars and wall cutout."""
+def create_usb_features(body, dims, angle=0.0):
+    """Adds USB mounting pillars and wall cutout.
+    angle: Rotation angle in degrees (0=South, -60=SW, +60=SE)
+    """
     # 1. Pillars
     y_south_wall = -dims['inner_flat_to_flat'] / 2
     y_south_pillars = y_south_wall + 3.0
@@ -156,28 +158,39 @@ def create_usb_features(body, dims):
     solid = Part.makeCylinder(spcb_outer_r, spcb_height)
     solid.translate(FreeCAD.Vector(0, 0, dims['floor_height']))
     
+    pillars_fuse = None
+    
     for pos in positions:
         p = solid.copy()
         p.translate(pos)
-        body = body.fuse(p)
+        if pillars_fuse is None:
+            pillars_fuse = p
+        else:
+            pillars_fuse = pillars_fuse.fuse(p)
         
     # Holes (Deep into floor)
     # Start Z=1.0, Length enough to clear top
     cutter = Part.makeCylinder(spcb_inner_r, spcb_height + 10)
     cutter.translate(FreeCAD.Vector(0, 0, 1.0))
     
-    compound_holes = []
+    pillars_cut = None
+    
     for pos in positions:
         h = cutter.copy()
         h.translate(pos)
-        compound_holes.append(h)
-        
-    if compound_holes:
-        c = compound_holes[0]
-        for h in compound_holes[1:]:
-            c = c.fuse(h)
-        body = body.cut(c)
-        
+        if pillars_cut is None:
+            pillars_cut = h
+        else:
+            pillars_cut = pillars_cut.fuse(h)
+            
+    # Combine pillars solid and cut
+    if pillars_fuse and pillars_cut:
+        pillars_final = pillars_fuse.cut(pillars_cut)
+    elif pillars_fuse:
+        pillars_final = pillars_fuse
+    else:
+        pillars_final = None
+
     # 2. Wall Cutout
     cutout_w = 13.0
     cutout_h = 7.0
@@ -205,6 +218,20 @@ def create_usb_features(body, dims):
             
     if edges:
         box = box.makeFillet(cutout_r, edges)
+        
+    # Apply Rotation if needed
+    if abs(angle) > 0.001:
+        rot = FreeCAD.Matrix()
+        rot.rotateZ(math.radians(angle))
+        
+        if pillars_final:
+            pillars_final = pillars_final.transformGeometry(rot)
+        
+        box = box.transformGeometry(rot)
+
+    # Fuse Pillars and Cut Box
+    if pillars_final:
+        body = body.fuse(pillars_final)
         
     body = body.cut(box)
     
