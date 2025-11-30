@@ -172,10 +172,6 @@ def main():
                         if side in neighbors:
                             valid_connectors[side] = ctype
                     features['connectors'] = valid_connectors
-                    
-                    # Remove connector sides from open_sides (Cable Channels)
-                    # We don't want to cut a cable channel where we have a connector
-                    features['open_sides'] = [s for s in neighbors if s not in valid_connectors]
                 
                 # Create Part
                 parts = hub.create_model(params.get('hub', {}), global_dims, features=features)
