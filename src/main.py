@@ -29,7 +29,7 @@ def log(message):
 
 try:
     from lib import cad_tools, export_tools
-    from models import hub, lids
+    from models import hub, lids, pogo_attachment
     import hub_config
     log("Libraries imported successfully.")
 except Exception as e:
@@ -270,6 +270,11 @@ def main():
                 }
                 # Export Modifier (3MF only)
                 build_and_export(f"{export_name}_Modifier", modifier_parts, formats=['3mf'])
+
+        # --- 9. PogoPinAufsatz ---
+        log("Building 9. PogoPinAufsatz...")
+        pogo_parts = pogo_attachment.create_pogo_pin_attachment()
+        build_and_export("9_PogoPinAufsatz", pogo_parts)
         
         # Cleanup .FCBak files
         fcstd_dir = os.path.join(base_dir, 'output', 'fcstd')
