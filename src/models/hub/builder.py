@@ -1,0 +1,106 @@
+import FreeCAD
+import Part
+import math
+from . import geometry
+from . import features as feat_module
+from . import connectors
+
+def create_model(params, global_dims, features={}):
+    """
+    Creates the Hub model.
+    Returns a dictionary of parts: {'part_name': shape}
+    features: dict of enabled features.
+        - controller_mounts: bool
+        - usb_mounts: bool
+        - open_sides: list of int (0-5) - indices of walls to cut cable channels into.
+    """
+    # Extract dimensions
+    dims = _extract_dimensions(global_dims)
+    
+    # 1. Create Base Body (Floor + Wall + Slope)
+    hub_body = geometry.create_base_body(dims)
+    
+    # 2. Add Lid Recesses
+    hub_body = geometry.create_lid_recesses(hub_body, dims)
+    
+    # 3. Add Spacer Rim
+    hub_body = geometry.create_rim(hub_body, dims)
+    
+    # 4. Add Floor Mounting Holes
+    hub_body = geometry.create_floor_holes(hub_body, dims)
+    
+    # 5. Add Magnet Pillars
+    hub_body = feat_module.create_magnet_pillars(hub_body, dims)
+    
+    # 6. Add PogoPin Pillars
+    hub_body = feat_module.create_pogo_pillars(hub_body, dims)
+    
+    # 7. Add Controller Mounts (Optional)
+    if features.get('controller_mounts', False):
+        hub_body = feat_module.create_controller_features(hub_body, dims)
+        
+    # 8. Add USB Mounts & Cutout (Optional)
+    if features.get('usb_mounts', False):
+        hub_body = feat_module.create_usb_features(hub_body, dims)
+
+    # 9. Add Cable Channels (Cutouts)
+    open_sides = features.get('open_sides', [])
+    if open_sides:
+        hub_body = geometry.create_cable_channels(hub_body, dims, open_sides)
+        
+    # 10. Add Connectors (Configurable)
+    if features.get('conn_ne', False):
+        hub_body = connectors.create_connector_ne(hub_body, dims)
+    if features.get('conn_nw', False):
+        hub_body = connectors.create_connector_nw(hub_body, dims)
+    if features.get('conn_sw', False):
+        hub_body = connectors.create_connector_sw(hub_body, dims)
+    if features.get('conn_se', False):
+        hub_body = connectors.create_connector_se(hub_body, dims)
+        
+    # 10b. Add Generic Connectors (Side 1/4 etc.)
+    if 'connectors' in features:
+        hub_body = connectors.create_connectors(hub_body, dims, features['connectors'])
+
+    # 11. Create Modifier (for printing optimization)
+    modifier = geometry.create_modifier(dims)
+    
+    return {
+        "Hub_Body": {
+            "shape": hub_body,
+            "color": (0.9, 0.9, 0.9) # Light Grey
+        },
+        "Modifier": {
+            "shape": modifier,
+            "color": (0.2, 0.8, 0.2) # Greenish
+        }
+    }
+
+def _extract_dimensions(global_dims):
+    """Helper to extract and calculate common dimensions."""
+    d = {}
+    d['outer_flat_to_flat'] = global_dims['hub']['outer_flat_to_flat_mm']
+    d['wall_thickness'] = global_dims['hub']['wall_thickness_mm']
+    d['floor_height'] = 2.0
+    d['wall_height'] = 14.0
+    d['inner_flat_to_flat'] = d['outer_flat_to_flat'] - (2 * d['wall_thickness'])
+    
+    # Slope parameters
+    d['slope_length_y'] = 29.0
+    d['slope_angle_deg'] = 80.0
+    
+    # Calculate Z heights
+    d['z_top_wall'] = d['floor_height'] + d['wall_height']
+    
+    angle_rad = math.radians(90 - d['slope_angle_deg'])
+    d['delta_z_slope'] = d['slope_length_y'] * math.tan(angle_rad)
+    d['z_south_wall'] = d['z_top_wall'] - d['delta_z_slope']
+    
+    # Connector Dimensions
+    d['rail_spacing'] = 10.0
+    d['male_z_height'] = 5.0
+    d['female_housing_height'] = 4.0
+    d['pin_length'] = 25.0
+    d['recess_depth'] = 3.0
+    
+    return d
