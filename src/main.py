@@ -107,7 +107,13 @@ def main():
         # --- 1. Solo Slot komplett (Test-Assembly) ---
         # 1 Slot mit allen Features aktiv + Deckel
         log("Building 1. Solo Slot (Full Features)...")
-        features_full = {'controller_mounts': True, 'usb_mounts': True, 'solo_connectors': True}
+        features_full = {
+            'controller_mounts': True, 
+            'usb_mounts': True, 
+            'conn_ne': True,
+            'conn_nw': True,
+            'conn_e': True
+        }
         solo_slot_parts = hub.create_model(params.get('hub', {}), global_dims, features=features_full)
         
         # Extract Modifier

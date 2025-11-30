@@ -46,9 +46,13 @@ def create_model(params, global_dims, features={}):
     if open_sides:
         hub_body = _create_cable_channels(hub_body, dims, open_sides)
         
-    # 10. Add Connectors (Solo Slot Special)
-    if features.get('solo_connectors', False):
-        hub_body = _create_solo_connectors(hub_body, dims)
+    # 10. Add Connectors (Configurable)
+    if features.get('conn_ne', False):
+        hub_body = _create_connector_ne(hub_body, dims)
+    if features.get('conn_nw', False):
+        hub_body = _create_connector_nw(hub_body, dims)
+    if features.get('conn_e', False):
+        hub_body = _create_connector_e(hub_body, dims)
 
     # 11. Create Modifier (for printing optimization)
     modifier = _create_modifier(dims)
@@ -66,13 +70,8 @@ def create_model(params, global_dims, features={}):
 
 # ... (Previous functions unchanged) ...
 
-def _create_solo_connectors(body, dims):
-    """Adds specific connectors for the Solo Slot (NE + East)."""
-    # Dimensions
-    R = dims['outer_flat_to_flat'] / math.sqrt(3)
-    apothem = dims['outer_flat_to_flat'] / 2.0
-    
-    # Inner Hexagon for Cutting
+def _get_inner_prism(dims):
+    """Creates the inner hexagon prism for cutting connectors."""
     wall_thickness = dims['wall_thickness']
     inner_flat_to_flat = dims['outer_flat_to_flat'] - (2 * wall_thickness)
     r_inner = inner_flat_to_flat / math.sqrt(3)
@@ -89,18 +88,17 @@ def _create_solo_connectors(body, dims):
     inner_face = Part.Face(inner_shape)
     inner_prism = inner_face.extrude(FreeCAD.Vector(0, 0, 20))
     inner_prism.translate(FreeCAD.Vector(0, 0, -5))
+    return inner_prism
+
+def _create_connector_ne(body, dims):
+    """Adds NE Connector (Side 0)."""
+    R = dims['outer_flat_to_flat'] / math.sqrt(3)
+    apothem = dims['outer_flat_to_flat'] / 2.0
     
-    # Vertices
     v0 = FreeCAD.Vector(R, 0, 0)
     v60 = FreeCAD.Vector(R/2, apothem, 0)
-    v300 = FreeCAD.Vector(R/2, -apothem, 0)
     
-    length = 20.0
-    
-    # --- 1. NE Connector (Side 0) ---
-    # Side 0 connects V60 and V0.
-    # Old: 8mm from V60 (Right corner of Side 1).
-    # New: 15mm from V0 (Other corner of Side 0).
+    # Position: 15mm from V0 towards V60
     dist_ne = 15.0
     dir_ne = v60.sub(v0).normalize()
     pos_ne = v0.add(dir_ne.multiply(dist_ne))
@@ -108,18 +106,57 @@ def _create_solo_connectors(body, dims):
     # Shift Inwards (-Y)
     pos_ne.y -= 4.0
     
+    length = 20.0
     prof_ne = _get_connector_profile(dims, clearance=0.0)
     prof_ne.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(1,0,0), 90) # Y->Z
     conn_ne = prof_ne.extrude(FreeCAD.Vector(0, length, 0)) # +Y
     conn_ne.translate(pos_ne)
     
+    # Cut
+    inner_prism = _get_inner_prism(dims)
     conn_ne = conn_ne.cut(inner_prism)
-    body = body.fuse(conn_ne)
     
-    # --- 2. East Connector (Side 5) ---
-    # Side 5 connects V0 and V300.
-    # Old: 10mm from V0.
-    # New: 10mm from V300 (Other corner).
+    return body.fuse(conn_ne)
+
+def _create_connector_nw(body, dims):
+    """Adds NW Connector (Side 2) - Mirrored from NE."""
+    # We calculate NE position and mirror X
+    R = dims['outer_flat_to_flat'] / math.sqrt(3)
+    apothem = dims['outer_flat_to_flat'] / 2.0
+    
+    v0 = FreeCAD.Vector(R, 0, 0)
+    v60 = FreeCAD.Vector(R/2, apothem, 0)
+    
+    # NE Position Calculation
+    dist_ne = 15.0
+    dir_ne = v60.sub(v0).normalize()
+    pos_ne = v0.add(dir_ne.multiply(dist_ne))
+    pos_ne.y -= 4.0 # Shift
+    
+    # Mirror to NW (X -> -X)
+    pos_nw = FreeCAD.Vector(-pos_ne.x, pos_ne.y, 0)
+    
+    length = 20.0
+    prof_nw = _get_connector_profile(dims, clearance=0.0)
+    prof_nw.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(1,0,0), 90) # Y->Z
+    conn_nw = prof_nw.extrude(FreeCAD.Vector(0, length, 0)) # +Y
+    conn_nw.translate(pos_nw)
+    
+    # Cut
+    inner_prism = _get_inner_prism(dims)
+    conn_nw = conn_nw.cut(inner_prism)
+    
+    return body.fuse(conn_nw)
+
+def _create_connector_e(body, dims):
+    """Adds East Connector (Side 5)."""
+    R = dims['outer_flat_to_flat'] / math.sqrt(3)
+    apothem = dims['outer_flat_to_flat'] / 2.0
+    
+    v0 = FreeCAD.Vector(R, 0, 0)
+    v300 = FreeCAD.Vector(R/2, -apothem, 0)
+    
+    # Position: 10mm from V300 towards V0
     dist_e = 10.0
     dir_e = v0.sub(v300).normalize()
     pos_e = v300.add(dir_e.multiply(dist_e))
@@ -128,16 +165,18 @@ def _create_solo_connectors(body, dims):
     shift_x_e = -1.0
     pos_e.x += shift_x_e
     
+    length = 20.0
     prof_e = _get_connector_profile(dims, clearance=0.0)
     prof_e.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(1,0,0), 90) # XZ
     prof_e.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), 90) # YZ
     conn_e = prof_e.extrude(FreeCAD.Vector(length, 0, 0)) # +X
     conn_e.translate(pos_e)
     
+    # Cut
+    inner_prism = _get_inner_prism(dims)
     conn_e = conn_e.cut(inner_prism)
-    body = body.fuse(conn_e)
     
-    return body
+    return body.fuse(conn_e)
 
 def _get_connector_profile(dims, clearance=0.0):
     """Creates the 2D profile for the connector rail."""
