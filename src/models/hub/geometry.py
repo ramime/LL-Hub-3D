@@ -179,7 +179,7 @@ def create_cable_channels(body, dims, open_sides):
         c = cutter.copy()
         
         # 1. Rotate to side angle
-        angle = side_idx * 60
+        angle = side_idx * 60 + 30
         c.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle)
         
         # 2. Move to wall distance

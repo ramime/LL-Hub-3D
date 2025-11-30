@@ -162,7 +162,20 @@ def main():
                 features = hub_config.get_slot_features(hub_type, slot['id'])
                 
                 # Set open sides from neighbors map
-                features['open_sides'] = neighbors_map.get(slot['id'], [])
+                neighbors = neighbors_map.get(slot['id'], [])
+                features['open_sides'] = neighbors
+                
+                # Filter connectors: Only allow connectors on sides that have neighbors
+                if 'connectors' in features:
+                    valid_connectors = {}
+                    for side, ctype in features['connectors'].items():
+                        if side in neighbors:
+                            valid_connectors[side] = ctype
+                    features['connectors'] = valid_connectors
+                    
+                    # Remove connector sides from open_sides (Cable Channels)
+                    # We don't want to cut a cable channel where we have a connector
+                    features['open_sides'] = [s for s in neighbors if s not in valid_connectors]
                 
                 # Create Part
                 parts = hub.create_model(params.get('hub', {}), global_dims, features=features)
