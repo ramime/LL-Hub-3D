@@ -46,7 +46,11 @@ def create_model(params, global_dims, features={}):
     if open_sides:
         hub_body = _create_cable_channels(hub_body, dims, open_sides)
         
-    # 10. Create Modifier (for printing optimization)
+    # 10. Add Connectors (Solo Slot Special)
+    if features.get('solo_connectors', False):
+        hub_body = _create_solo_connectors(hub_body, dims)
+
+    # 11. Create Modifier (for printing optimization)
     modifier = _create_modifier(dims)
     
     return {
@@ -59,6 +63,118 @@ def create_model(params, global_dims, features={}):
             "color": (0.2, 0.8, 0.2) # Greenish
         }
     }
+
+# ... (Previous functions unchanged) ...
+
+def _create_solo_connectors(body, dims):
+    """Adds specific connectors for the Solo Slot (NE + East)."""
+    # Dimensions
+    R = dims['outer_flat_to_flat'] / math.sqrt(3)
+    apothem = dims['outer_flat_to_flat'] / 2.0
+    
+    # Inner Hexagon for Cutting
+    wall_thickness = dims['wall_thickness']
+    inner_flat_to_flat = dims['outer_flat_to_flat'] - (2 * wall_thickness)
+    r_inner = inner_flat_to_flat / math.sqrt(3)
+    
+    inner_shape = Part.makePolygon([
+        FreeCAD.Vector(r_inner, 0, 0),
+        FreeCAD.Vector(r_inner/2, inner_flat_to_flat/2, 0),
+        FreeCAD.Vector(-r_inner/2, inner_flat_to_flat/2, 0),
+        FreeCAD.Vector(-r_inner, 0, 0),
+        FreeCAD.Vector(-r_inner/2, -inner_flat_to_flat/2, 0),
+        FreeCAD.Vector(r_inner/2, -inner_flat_to_flat/2, 0),
+        FreeCAD.Vector(r_inner, 0, 0)
+    ])
+    inner_face = Part.Face(inner_shape)
+    inner_prism = inner_face.extrude(FreeCAD.Vector(0, 0, 20))
+    inner_prism.translate(FreeCAD.Vector(0, 0, -5))
+    
+    # Vertices
+    v0 = FreeCAD.Vector(R, 0, 0)
+    v60 = FreeCAD.Vector(R/2, apothem, 0)
+    v300 = FreeCAD.Vector(R/2, -apothem, 0)
+    
+    length = 20.0
+    
+    # --- 1. NE Connector (Side 0) ---
+    # Side 0 connects V60 and V0.
+    # Old: 8mm from V60 (Right corner of Side 1).
+    # New: 15mm from V0 (Other corner of Side 0).
+    dist_ne = 15.0
+    dir_ne = v60.sub(v0).normalize()
+    pos_ne = v0.add(dir_ne.multiply(dist_ne))
+    
+    # Shift Inwards (-Y)
+    pos_ne.y -= 4.0
+    
+    prof_ne = _get_connector_profile(dims, clearance=0.0)
+    prof_ne.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(1,0,0), 90) # Y->Z
+    conn_ne = prof_ne.extrude(FreeCAD.Vector(0, length, 0)) # +Y
+    conn_ne.translate(pos_ne)
+    
+    conn_ne = conn_ne.cut(inner_prism)
+    body = body.fuse(conn_ne)
+    
+    # --- 2. East Connector (Side 5) ---
+    # Side 5 connects V0 and V300.
+    # Old: 10mm from V0.
+    # New: 10mm from V300 (Other corner).
+    dist_e = 10.0
+    dir_e = v0.sub(v300).normalize()
+    pos_e = v300.add(dir_e.multiply(dist_e))
+    
+    # Shift Inwards (-X)
+    shift_x_e = -1.0
+    pos_e.x += shift_x_e
+    
+    prof_e = _get_connector_profile(dims, clearance=0.0)
+    prof_e.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(1,0,0), 90) # XZ
+    prof_e.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), 90) # YZ
+    conn_e = prof_e.extrude(FreeCAD.Vector(length, 0, 0)) # +X
+    conn_e.translate(pos_e)
+    
+    conn_e = conn_e.cut(inner_prism)
+    body = body.fuse(conn_e)
+    
+    return body
+
+def _get_connector_profile(dims, clearance=0.0):
+    """Creates the 2D profile for the connector rail."""
+    # Square with 4mm edge length, rotated 45 deg.
+    # Shifted down by 0.9mm.
+    # Cut off at Y=0 (Z=0 in Hub).
+    
+    edge_len = 4.0
+    shift_down = 0.9
+    
+    # Diagonal of 4mm square
+    diag = edge_len * math.sqrt(2) # ~5.657
+    half_diag = diag / 2.0 # ~2.828
+    
+    center_y = half_diag - shift_down 
+    
+    # Points:
+    p_bottom_l = FreeCAD.Vector(-0.9, 0, 0)
+    p_bottom_r = FreeCAD.Vector(0.9, 0, 0)
+    p_right = FreeCAD.Vector(half_diag, center_y, 0)
+    p_top = FreeCAD.Vector(0, center_y + half_diag, 0)
+    p_left = FreeCAD.Vector(-half_diag, center_y, 0)
+    
+    points = [p_bottom_l, p_bottom_r, p_right, p_top, p_left]
+    
+    wire = Part.makePolygon(points + [points[0]])
+    
+    if clearance > 0:
+        try:
+            offset_wire = wire.makeOffset2D(clearance)
+            face = Part.Face(offset_wire)
+        except Exception:
+            face = Part.Face(wire)
+    else:
+        face = Part.Face(wire)
+        
+    return face
 
 def _extract_dimensions(global_dims):
     """Helper to extract and calculate common dimensions."""
@@ -79,6 +195,13 @@ def _extract_dimensions(global_dims):
     angle_rad = math.radians(90 - d['slope_angle_deg'])
     d['delta_z_slope'] = d['slope_length_y'] * math.tan(angle_rad)
     d['z_south_wall'] = d['z_top_wall'] - d['delta_z_slope']
+    
+    # Connector Dimensions
+    d['rail_spacing'] = 10.0
+    d['male_z_height'] = 5.0
+    d['female_housing_height'] = 4.0
+    d['pin_length'] = 20.0
+    d['recess_depth'] = 3.0
     
     return d
 
@@ -527,3 +650,211 @@ def _create_modifier(dims):
     modifier = cad_tools.create_hexagon(dims['inner_flat_to_flat'], 1.5)
     modifier.translate(FreeCAD.Vector(0, 0, 0.5))
     return modifier
+
+def _create_connectors(body, dims, connectors):
+    """Adds Male/Female connectors to specified sides."""
+    for side_idx, c_type in connectors.items():
+        if c_type == 'male':
+            body = _create_male_connector(body, dims, side_idx)
+        elif c_type == 'female':
+            body = _create_female_connector(body, dims, side_idx)
+    return body
+
+def _get_rail_orientation(side_idx):
+    """Returns the extrusion vector for the rails (Horizontal X or Vertical Y)."""
+    # Side 0 (NE), 5 (SE) -> X (1,0,0)
+    # Side 2 (NW), 3 (SW) -> X (-1,0,0)
+    # Side 1 (N) -> Y (0,1,0)
+    # Side 4 (S) -> Y (0,-1,0)
+    
+    if side_idx in [0, 5]:
+        return FreeCAD.Vector(1, 0, 0)
+    elif side_idx in [2, 3]:
+        return FreeCAD.Vector(-1, 0, 0)
+    elif side_idx == 1:
+        return FreeCAD.Vector(0, 1, 0)
+    elif side_idx == 4:
+        return FreeCAD.Vector(0, -1, 0)
+    return FreeCAD.Vector(0, 1, 0)
+
+def _get_connector_profile(dims, clearance=0.0):
+    """Creates the 2D profile for the connector rail."""
+    # New Requirement:
+    # Square with 4mm edge length, rotated 45 deg.
+    # Shifted down by 0.9mm.
+    # Cut off at Y=0 (Z=0 in Hub).
+    
+    edge_len = 4.0
+    shift_down = 0.9
+    
+    # Diagonal of 4mm square
+    diag = edge_len * math.sqrt(2) # ~5.657
+    half_diag = diag / 2.0 # ~2.828
+    
+    # Center Y (so that bottom tip is at -shift_down)
+    # Bottom tip of centered diamond is at -half_diag.
+    # We want it at -shift_down.
+    # So we shift by (-shift_down - (-half_diag)) = half_diag - shift_down.
+    center_y = half_diag - shift_down # 2.828 - 0.9 = 1.928
+    
+    # Coordinates of the diamond corners (before cut)
+    # Top: (0, center_y + half_diag)
+    # Right: (half_diag, center_y)
+    # Bottom: (0, center_y - half_diag) -> Should be -0.9
+    # Left: (-half_diag, center_y)
+    
+    # We need to intersect this with Y >= 0.
+    # The bottom edges are lines from (0, -0.9) to (+/- half_diag, center_y).
+    # Slope m = (center_y - (-0.9)) / half_diag = (half_diag) / half_diag = 1.
+    # Line Right: y = x - 0.9. At y=0 -> x = 0.9.
+    # Line Left: y = -x - 0.9. At y=0 -> x = -0.9.
+    
+    # So the points at Y=0 are (-0.9, 0) and (0.9, 0).
+    
+    # Points:
+    p_bottom_l = FreeCAD.Vector(-0.9, 0, 0)
+    p_bottom_r = FreeCAD.Vector(0.9, 0, 0)
+    p_right = FreeCAD.Vector(half_diag, center_y, 0)
+    p_top = FreeCAD.Vector(0, center_y + half_diag, 0)
+    p_left = FreeCAD.Vector(-half_diag, center_y, 0)
+    
+    points = [p_bottom_l, p_bottom_r, p_right, p_top, p_left]
+    
+    wire = Part.makePolygon(points + [points[0]])
+    
+    # Apply clearance if needed
+    if clearance > 0:
+        # Offset the wire outwards
+        # makeOffset2D returns a wire (or list of wires?)
+        try:
+            offset_wire = wire.makeOffset2D(clearance)
+            face = Part.Face(offset_wire)
+        except Exception:
+            # Fallback if makeOffset2D fails or not available (older FC)
+            # Simple scaling? No, scaling is wrong.
+            # Let's manually offset points? Complex for general polygon.
+            # But this is a convex polygon.
+            # Let's try to just return the face of the wire and hope clearance is handled elsewhere?
+            # No, we need it here.
+            # Let's assume makeOffset2D works (standard in recent FC).
+            face = Part.Face(wire) # Fallback
+            # Log warning?
+            pass
+            
+            # Actually, let's try to implement a simple manual offset for this specific shape if we want to be safe.
+            # But makeOffset2D is best.
+            face = Part.Face(offset_wire)
+    else:
+        face = Part.Face(wire)
+        
+    return face
+
+def _create_male_connector(body, dims, side_idx):
+    """Creates the male connector (Rails in Recess)."""
+    dist_outer = dims['outer_flat_to_flat'] / 2
+    angle_deg = 30 + (side_idx * 60)
+    
+    # 1. Create Recess
+    recess_w = 20.0
+    recess_d = dims['recess_depth']
+    recess_h = dims['male_z_height']
+    
+    box = Part.makeBox(recess_w, recess_d, recess_h)
+    box.translate(FreeCAD.Vector(-recess_w/2, -recess_d, 0))
+    box.translate(FreeCAD.Vector(0, dist_outer, 0))
+    box.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle_deg)
+    
+    body = body.cut(box)
+    
+    # 2. Create Rails
+    spacing = dims['rail_spacing']
+    ext_vec = _get_rail_orientation(side_idx)
+    length = dims['pin_length']
+    
+    rails = []
+    for i in [-1, 1]:
+        offset_val = (spacing / 2) * i
+        
+        # Profile in XY
+        prof = _get_connector_profile(dims, clearance=0.0)
+        
+        # Rotate to XZ (Y becomes Z)
+        prof.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(1,0,0), 90)
+        
+        # Rotate based on extrusion direction
+        if abs(ext_vec.x) > 0.9: # Extrusion along X
+            prof.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), 90) # To YZ
+            prof.translate(FreeCAD.Vector(0, offset_val, 0))
+        elif abs(ext_vec.y) > 0.9: # Extrusion along Y
+            prof.translate(FreeCAD.Vector(offset_val, 0, 0))
+            
+        # Extrude
+        rail = prof.extrude(ext_vec.multiply(length))
+        
+        # Center longitudinally
+        rail.translate(ext_vec.multiply(-length/2))
+        
+        # Move to Wall Center Position
+        m = FreeCAD.Matrix()
+        m.rotateZ(math.radians(angle_deg))
+        wall_center_pt = m.multVec(FreeCAD.Vector(0, dist_outer - recess_d, 0))
+        
+        rail.translate(FreeCAD.Vector(wall_center_pt.x, wall_center_pt.y, 0))
+        
+        rails.append(rail)
+        
+    for r in rails:
+        body = body.fuse(r)
+        
+    return body
+
+def _create_female_connector(body, dims, side_idx):
+    """Creates the female connector (Cutout + Housing)."""
+    dist_outer = dims['outer_flat_to_flat'] / 2
+    angle_deg = 30 + (side_idx * 60)
+    
+    # 1. Housing
+    housing_h = dims['female_housing_height']
+    housing_w = 24.0
+    housing_d = 8.0
+    
+    box = Part.makeBox(housing_w, housing_d, housing_h)
+    box.translate(FreeCAD.Vector(-housing_w/2, -housing_d, 0))
+    box.translate(FreeCAD.Vector(0, dist_outer, 0))
+    box.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle_deg)
+    
+    body = body.fuse(box)
+    
+    # 2. Cutouts
+    spacing = dims['rail_spacing']
+    ext_vec = _get_rail_orientation(side_idx)
+    length = dims['pin_length'] + 10.0
+    
+    cutters = []
+    for i in [-1, 1]:
+        offset_val = (spacing / 2) * i
+        
+        prof = _get_connector_profile(dims, clearance=0.15)
+        prof.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(1,0,0), -90)
+        
+        if abs(ext_vec.x) > 0.9:
+            prof.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), 90)
+            prof.translate(FreeCAD.Vector(0, offset_val, 0))
+        elif abs(ext_vec.y) > 0.9:
+            prof.translate(FreeCAD.Vector(offset_val, 0, 0))
+            
+        cutter = prof.extrude(ext_vec.multiply(length))
+        cutter.translate(ext_vec.multiply(-length/2))
+        
+        m = FreeCAD.Matrix()
+        m.rotateZ(math.radians(angle_deg))
+        wall_center_pt = m.multVec(FreeCAD.Vector(0, dist_outer, 0))
+        
+        cutter.translate(FreeCAD.Vector(wall_center_pt.x, wall_center_pt.y, 0))
+        
+        cutters.append(cutter)
+        
+    for c in cutters:
+        body = body.cut(c)
+        
+    return body

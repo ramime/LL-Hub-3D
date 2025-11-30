@@ -7,3 +7,4 @@ __pycache__/
 .DS_Store
 Thumbs.db
 debug_exec.txt
+output.log
