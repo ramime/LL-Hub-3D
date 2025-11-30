@@ -5,9 +5,9 @@ import traceback
 import math
 
 # Debug: Write to a file immediately to prove execution started
-debug_log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'debug_exec.txt')
-with open(debug_log_path, 'w') as f:
-    f.write("Script execution started.\n")
+# debug_log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'debug_exec.txt')
+# with open(debug_log_path, 'w') as f:
+#     f.write("Script execution started.\n")
 
 # Add the current directory to path so we can import from lib
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,16 +16,16 @@ sys.path.append(current_dir)
 try:
     import FreeCAD
 except ImportError:
-    with open(debug_log_path, 'a') as f:
-        f.write("Error: FreeCAD module not found.\n")
+    # with open(debug_log_path, 'a') as f:
+    #     f.write("Error: FreeCAD module not found.\n")
     sys.exit(1)
 
 def log(message):
-    """Log to both console and file."""
+    """Log to console."""
     msg = str(message) + "\n"
     FreeCAD.Console.PrintMessage(msg)
-    with open(debug_log_path, 'a') as f:
-        f.write(msg)
+    # with open(debug_log_path, 'a') as f:
+    #     f.write(msg)
 
 try:
     from lib import cad_tools, export_tools

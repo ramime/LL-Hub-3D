@@ -106,11 +106,15 @@ def _create_connector_sw(body, dims):
     # Housing Height: 4mm (Z).
     # Size: 10x10?
     # Housing Height: 4mm (Z).
-    # Size: 10x10?
+    # Size: pin_length x pin_length to ensure coverage
+    # Housing Height: 4mm (Z).
+    # Size: pin_length x 8mm (X)
     housing_h = 4.0
-    housing_shape = Part.makeBox(12, 12, housing_h)
+    width = 8.0
+    depth = dims['pin_length']
+    housing_shape = Part.makeBox(width, depth, housing_h)
     # Center it at pos_sw
-    housing_shape.translate(FreeCAD.Vector(-6, -6, 0))
+    housing_shape.translate(FreeCAD.Vector(-width/2, -depth/2, 0))
     housing_shape.translate(pos_sw)
     
     # Trim Housing to Outer Hexagon (so it doesn't protrude outwards)
@@ -182,8 +186,10 @@ def _create_connector_se(body, dims):
     
     # Housing
     housing_h = 4.0
-    housing_shape = Part.makeBox(12, 12, housing_h)
-    housing_shape.translate(FreeCAD.Vector(-6, -6, 0))
+    width = 8.0
+    depth = dims['pin_length']
+    housing_shape = Part.makeBox(width, depth, housing_h)
+    housing_shape.translate(FreeCAD.Vector(-width/2, -depth/2, 0))
     housing_shape.translate(pos_se)
     
     # Trim Housing
@@ -1056,14 +1062,8 @@ def _create_female_connector(body, dims, side_idx):
         
         # 1. Housing
         housing_h = dims['female_housing_height']
-        housing_w = 24.0
-        housing_d = 8.0 # Thickness of housing block
-        
-        # Housing should be centered at pos_y?
-        # Or aligned with wall?
-        # Housing needs to contain the cutout.
-        # Cutout is at pos_y.
-        # So Housing should be around pos_y.
+        housing_w = 8.0 # 8mm total width
+        housing_d = dims['pin_length']
         
         box = Part.makeBox(housing_w, housing_d, housing_h)
         # Center X
@@ -1079,7 +1079,9 @@ def _create_female_connector(body, dims, side_idx):
         
         # 2. Cutouts
         spacing = dims['rail_spacing']
-        length = dims['pin_length'] + 5.0 # Pin Length + 5 + Margin
+        # Male Length is pin_length
+        # Female Cutout should be Male Length + 2.0 Margin
+        length = dims['pin_length'] + 2.0
         
         cutters = []
         for i in [-1, 1]:
@@ -1111,8 +1113,8 @@ def _create_female_connector(body, dims, side_idx):
         
         # 1. Housing
         housing_h = dims['female_housing_height']
-        housing_w = 24.0
-        housing_d = 8.0
+        housing_w = 8.0
+        housing_d = dims['pin_length']
         
         box = Part.makeBox(housing_w, housing_d, housing_h)
         box.translate(FreeCAD.Vector(-housing_w/2, -housing_d, 0))
@@ -1127,8 +1129,9 @@ def _create_female_connector(body, dims, side_idx):
         
         # 2. Cutouts
         spacing = dims['rail_spacing']
-        ext_vec = _get_rail_orientation(side_idx)
-        length = dims['pin_length'] + 5.0
+        # Male Length is pin_length
+        # Female Cutout should be Male Length + 2.0 Margin
+        length = dims['pin_length'] + 2.0
         
         cutters = []
         for i in [-1, 1]:
