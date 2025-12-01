@@ -81,6 +81,7 @@ def main():
         features_full = {
             'controller_mounts': True, 
             'usb_mounts': True, 
+            'magnet_sides': [3],
             'connectors': {
                 1: 'male',
                 2: 'male', # NE

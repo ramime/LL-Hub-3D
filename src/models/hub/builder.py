@@ -57,7 +57,12 @@ def create_model(params, global_dims, features={}):
     if 'connectors' in features:
         hub_body = connectors.create_connectors(hub_body, dims, features['connectors'])
 
-    # 11. Create Modifier (for printing optimization)
+    # 11. Add Magnet Features
+    magnet_sides = features.get('magnet_sides', [])
+    if magnet_sides:
+        hub_body = feat_module.create_magnet_features(hub_body, dims, magnet_sides)
+
+    # 12. Create Modifier (for printing optimization)
     modifier = geometry.create_modifier(dims)
     
     return {

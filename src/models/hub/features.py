@@ -236,3 +236,131 @@ def create_usb_features(body, dims, angle=0.0):
     body = body.cut(box)
     
     return body
+
+def create_magnet_features(body, dims, side_indices):
+    """
+    Adds magnet mounting features (housing and cutout) to the specified walls.
+    
+    Geometry:
+    - Housing: Box attached to inner wall.
+      - Depth (from wall inwards): 2.6mm
+      - Width: 9mm
+      - Height: 6mm (from floor)
+    - Cutout: Box cutting into wall and housing.
+      - Depth: 3.2mm (2.1mm into wall, 1.1mm into housing)
+      - Width: 6.2mm
+      - Height: 10.5mm (from floor)
+      
+    Built at +X (East) wall (Angle 0) and rotated.
+    """
+    if not side_indices:
+        return body
+
+    # Dimensions
+    housing_depth = 2.6
+    housing_width = 9.0
+    housing_height = 6.0
+    
+    cutout_depth_total = 3.2
+    cutout_into_wall = 2.1
+    cutout_width = 6.2
+    cutout_height = 10.5
+    
+    floor_height = dims['floor_height']
+    apothem = dims['inner_flat_to_flat'] / 2.0
+    
+    # 1. Create Housing (Solid)
+    # Built at +X wall.
+    # X range: [apothem - housing_depth, apothem]
+    # Y range: [-housing_width/2, housing_width/2]
+    # Z range: [floor_height, floor_height + housing_height]
+    
+    h_x = apothem - housing_depth
+    h_y = -housing_width / 2.0
+    h_z = floor_height
+    
+    housing_box = Part.makeBox(housing_depth, housing_width, housing_height)
+    housing_box.translate(FreeCAD.Vector(h_x, h_y, h_z))
+    
+    # 2. Create Cutout (Cutter)
+    # X range: [apothem - (cutout_depth_total - cutout_into_wall), apothem + cutout_into_wall]
+    # cutout_into_room = 3.2 - 2.1 = 1.1
+    # X start = apothem - 1.1
+    # X end = apothem + 2.1
+    # Length = 3.2
+    
+    cutout_into_room = cutout_depth_total - cutout_into_wall
+    c_x = apothem - cutout_into_room
+    c_y = -cutout_width / 2.0
+    c_z = floor_height
+    
+    cutout_box = Part.makeBox(cutout_depth_total, cutout_width, cutout_height)
+    
+    # Chamfer the top-outer edge (in the wall)
+    # Edge at X=max (cutout_depth_total), Z=max (cutout_height), parallel to Y
+    chamfer_edge = None
+    for e in cutout_box.Edges:
+        bbox = e.BoundBox
+        # Check if edge is at the top-outer corner
+        # X should be near cutout_depth_total (3.2)
+        # Z should be near cutout_height (10.5)
+        # Length should be near cutout_width (6.2) (Parallel to Y)
+        if (abs(bbox.XMax - cutout_depth_total) < 0.01 and 
+            abs(bbox.ZMax - cutout_height) < 0.01 and
+            abs(bbox.YMax - bbox.YMin) > 1.0): 
+            chamfer_edge = e
+            break
+            
+    if chamfer_edge:
+        cutout_box = cutout_box.makeChamfer(2.1, [chamfer_edge])
+        
+    cutout_box.translate(FreeCAD.Vector(c_x, c_y, c_z))
+    
+    # 3. Create Inner Cutout (Cutter for Housing)
+    # Cut from the face facing the room (X = apothem - housing_depth) inwards.
+    # Width: 4.2mm (centered)
+    # Height: 7.0mm (to clear top)
+    # Depth: 2.1mm
+    
+    in_cut_w = 4.2
+    in_cut_h = 7.0
+    in_cut_d = 2.1
+    
+    in_cut_x = apothem - housing_depth
+    in_cut_y = -in_cut_w / 2.0
+    in_cut_z = floor_height
+    
+    inner_cutout = Part.makeBox(in_cut_d, in_cut_w, in_cut_h)
+    inner_cutout.translate(FreeCAD.Vector(in_cut_x, in_cut_y, in_cut_z))
+
+    # Side Angles (from geometry.py logic)
+    # 1=N(90), 2=NE(30), 3=SE(330), 4=S(270), 5=SW(210), 6=NW(150)
+    side_angles = {
+        1: 90,
+        2: 30,
+        3: 330,
+        4: 270,
+        5: 210,
+        6: 150
+    }
+    
+    # Apply to each side
+    for side_idx in side_indices:
+        angle = side_angles.get(side_idx, 0)
+        
+        # Rotate Housing
+        h = housing_box.copy()
+        h.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle)
+        body = body.fuse(h)
+        
+        # Rotate Cutout (Wall)
+        c = cutout_box.copy()
+        c.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle)
+        body = body.cut(c)
+        
+        # Rotate Inner Cutout
+        ic = inner_cutout.copy()
+        ic.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle)
+        body = body.cut(ic)
+        
+    return body
