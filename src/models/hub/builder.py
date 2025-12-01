@@ -58,9 +58,15 @@ def create_model(params, global_dims, features={}):
         hub_body = connectors.create_connectors(hub_body, dims, features['connectors'])
 
     # 11. Add Magnet Features
-    magnet_sides = features.get('magnet_sides', [])
-    if magnet_sides:
-        hub_body = feat_module.create_magnet_features(hub_body, dims, magnet_sides)
+    magnet_config = features.get('magnet_config', {})
+    # Backwards compatibility for magnet_sides list
+    if 'magnet_sides' in features:
+        for side in features['magnet_sides']:
+            if side not in magnet_config:
+                magnet_config[side] = ['left', 'right']
+                
+    if magnet_config:
+        hub_body = feat_module.create_magnet_features(hub_body, dims, magnet_config)
 
     # 12. Create Modifier (for printing optimization)
     modifier = geometry.create_modifier(dims)

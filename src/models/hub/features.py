@@ -237,10 +237,14 @@ def create_usb_features(body, dims, angle=0.0):
     
     return body
 
-def create_magnet_features(body, dims, side_indices):
+def create_magnet_features(body, dims, magnet_config):
     """
     Adds magnet mounting features (housing and cutout) to the specified walls.
     
+    magnet_config: dict { side_idx: [positions] }
+      - side_idx: 1-6
+      - positions: list of 'left', 'right' (or both)
+      
     Geometry:
     - Housing: Box attached to inner wall.
       - Depth (from wall inwards): 2.6mm
@@ -253,7 +257,7 @@ def create_magnet_features(body, dims, side_indices):
       
     Built at +X (East) wall (Angle 0) and rotated.
     """
-    if not side_indices:
+    if not magnet_config:
         return body
 
     # Dimensions
@@ -333,6 +337,24 @@ def create_magnet_features(body, dims, side_indices):
     inner_cutout = Part.makeBox(in_cut_d, in_cut_w, in_cut_h)
     inner_cutout.translate(FreeCAD.Vector(in_cut_x, in_cut_y, in_cut_z))
 
+    # Positions on the wall (Y-offsets)
+    # "10mm from inner corner"
+    # Side length s = inner_flat_to_flat / sqrt(3)
+    # Corner is at y = +/- s/2
+    # Position = +/- (s/2 - 10)
+    
+    side_length = dims['inner_flat_to_flat'] / math.sqrt(3)
+    y_offset_abs = (side_length / 2.0) - 10.0
+    
+    # Mapping 'left'/'right' to Y offsets
+    # Looking at the wall from center:
+    # Left is +Y (for East wall)
+    # Right is -Y (for East wall)
+    pos_map = {
+        'left': y_offset_abs,
+        'right': -y_offset_abs
+    }
+
     # Side Angles (from geometry.py logic)
     # 1=N(90), 2=NE(30), 3=SE(330), 4=S(270), 5=SW(210), 6=NW(150)
     side_angles = {
@@ -345,22 +367,37 @@ def create_magnet_features(body, dims, side_indices):
     }
     
     # Apply to each side
-    for side_idx in side_indices:
+    for side_idx, positions in magnet_config.items():
         angle = side_angles.get(side_idx, 0)
         
-        # Rotate Housing
-        h = housing_box.copy()
-        h.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle)
-        body = body.fuse(h)
-        
-        # Rotate Cutout (Wall)
-        c = cutout_box.copy()
-        c.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle)
-        body = body.cut(c)
-        
-        # Rotate Inner Cutout
-        ic = inner_cutout.copy()
-        ic.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle)
-        body = body.cut(ic)
+        # Normalize positions to list if it's not (though we expect list)
+        if not isinstance(positions, (list, tuple)):
+            positions = [positions]
+            
+        for pos_key in positions:
+            y_off = pos_map.get(pos_key)
+            if y_off is None:
+                continue
+                
+            # Create a compound of the feature parts for this position
+            # Translate to Y offset BEFORE rotation
+            
+            # Housing
+            h = housing_box.copy()
+            h.translate(FreeCAD.Vector(0, y_off, 0))
+            h.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle)
+            body = body.fuse(h)
+            
+            # Cutout
+            c = cutout_box.copy()
+            c.translate(FreeCAD.Vector(0, y_off, 0))
+            c.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle)
+            body = body.cut(c)
+            
+            # Inner Cutout
+            ic = inner_cutout.copy()
+            ic.translate(FreeCAD.Vector(0, y_off, 0))
+            ic.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), angle)
+            body = body.cut(ic)
         
     return body

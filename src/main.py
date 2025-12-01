@@ -80,8 +80,17 @@ def main():
         log("Building 1. Solo Slot (Full Features)...")
         features_full = {
             'controller_mounts': True, 
+            'controller_mounts': True, 
             'usb_mounts': True, 
-            'magnet_sides': [3],
+            # 'magnet_sides': [1, 2, 3, 4, 5, 6], # Old list format
+            'magnet_config': {
+                1: ['left', 'right'],
+                2: ['left'],
+                3: ['left'],
+                4: ['left', 'right'],
+                5: ['right'],
+                6: ['right']
+            },
             'connectors': {
                 1: 'male',
                 2: 'male', # NE
@@ -109,7 +118,9 @@ def main():
 
         # --- 2. Slot Basic ---
         log("Building 2. Slot Basic...")
-        slot_basic_parts = hub.create_model(params.get('hub', {}), global_dims, features={})
+        # Enable magnets on all sides (left and right)
+        magnet_config_all = {i: ['left', 'right'] for i in range(1, 7)}
+        slot_basic_parts = hub.create_model(params.get('hub', {}), global_dims, features={'magnet_config': magnet_config_all})
         # Rename key for clarity in export
         slot_basic = {"Slot_Basic": slot_basic_parts["Hub_Body"]}
         build_and_export("2_Slot_Basic", slot_basic)
