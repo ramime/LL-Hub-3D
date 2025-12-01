@@ -25,7 +25,7 @@ Entwickelt für die Aufnahme der Haupt-Hub-Controller-Platine.
 **Verwendung:**
 *   Typischerweise einmal pro Hub-Baugruppe (z.B. Slot 2 bei Typ A, Slot 5 bei Typ B).
 
-## 3. Slot_USB
+## 3. Slot_USB_Center (Standard)
 Entwickelt für die Aufnahme einer USB-Anschluss-Platine (Südseite).
 
 **Features:**
@@ -34,4 +34,26 @@ Entwickelt für die Aufnahme einer USB-Anschluss-Platine (Südseite).
 *   **USB-Ausschnitt:** Rechteckiger Ausschnitt (13x7mm) in der Südwand für den USB-Stecker.
 
 **Verwendung:**
-*   Wird für Slots verwendet, die eine externe USB-Konnektivität bereitstellen (z.B. Slot 3).
+*   Standard USB-Slot, Ausrichtung nach Süden (0°).
+
+## 4. Slot_USB_Left
+Entwickelt für die Aufnahme einer USB-Anschluss-Platine (Süd-West Seite).
+
+**Features:**
+*   **Basis:** Enthält alle Features von **Slot_Basic**.
+*   **USB-Halterungen:** 4x Pfeiler (Süd-West Seite, rotiert um -60°) für USB-Platine.
+*   **USB-Ausschnitt:** Rechteckiger Ausschnitt (13x7mm) in der Süd-West-Wand für den USB-Stecker.
+
+**Verwendung:**
+*   Wird in **Hub_Type_A** (Slot 1) verwendet.
+
+## 5. Slot_USB_Right
+Entwickelt für die Aufnahme einer USB-Anschluss-Platine (Süd-Ost Seite).
+
+**Features:**
+*   **Basis:** Enthält alle Features von **Slot_Basic**.
+*   **USB-Halterungen:** 4x Pfeiler (Süd-Ost Seite, rotiert um +60°) für USB-Platine.
+*   **USB-Ausschnitt:** Rechteckiger Ausschnitt (13x7mm) in der Süd-Ost-Wand für den USB-Stecker.
+
+**Verwendung:**
+*   Wird in **Hub_Type_B** (Slot 3) verwendet.

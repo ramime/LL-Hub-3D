@@ -19,9 +19,9 @@ Die Nummerierung erfolgt von Links nach Rechts.
 Dieser Typ ist für eine Konfiguration ausgelegt, bei der die mittlere Spalte nach **OBEN** versetzt ist.
 
 **Slot-Belegung:**
-*   **Slot 1 (Unten Links):** Basic
+*   **Slot 1 (Unten Links):** **USB_Left** (Enthält USB-Anschluss, -60°)
 *   **Slot 2 (Unten Mitte):** **Controller** (Enthält Hub-Controller-Platine)
-*   **Slot 3 (Unten Rechts):** **USB** (Enthält USB-Anschluss)
+*   **Slot 3 (Unten Rechts):** Basic
 *   **Slot 4 (Oben Links):** Basic
 *   **Slot 5 (Oben Mitte):** Basic
 *   **Slot 6 (Oben Rechts):** Basic
@@ -32,19 +32,19 @@ Dieser Typ ist für eine Konfiguration ausgelegt, bei der die mittlere Spalte na
 **Slot-Belegung:**
 *   **Slot 1 (Unten Links):** Basic
 *   **Slot 2 (Unten Mitte):** Basic
-*   **Slot 3 (Unten Rechts):** **USB** (Enthält USB-Anschluss)
+*   **Slot 3 (Unten Rechts):** **USB_Right** (Enthält USB-Anschluss, +60°)
 *   **Slot 4 (Oben Links):** Basic
 *   **Slot 5 (Oben Mitte):** **Controller** (Enthält Hub-Controller-Platine)
 *   **Slot 6 (Oben Rechts):** Basic
 
 ## Feature-Matrix
 
-| Feature | Slot_Basic | Slot_Controller | Slot_USB |
-| :--- | :---: | :---: | :---: |
-| Geometrie & Deckel-Falz | Ja | Ja | Ja |
-| Boden-Löcher (6x) | Ja | Ja | Ja |
-| Magnet-Pfeiler (4x) | Ja | Ja | Ja |
-| PogoPin-Pfeiler (4x) | Ja | Ja | Ja |
-| **Controller-Mounts (6x)** | Nein | **Ja** | Nein |
-| **USB-Mounts (4x)** | Nein | Nein | **Ja** |
-| **USB-Wand-Ausschnitt** | Nein | Nein | **Ja** |
+| Feature | Slot_Basic | Slot_Controller | Slot_USB (Center) | Slot_USB_Left | Slot_USB_Right |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| Geometrie & Deckel-Falz | Ja | Ja | Ja | Ja | Ja |
+| Boden-Löcher (6x) | Ja | Ja | Ja | Ja | Ja |
+| Magnet-Pfeiler (4x) | Ja | Ja | Ja | Ja | Ja |
+| PogoPin-Pfeiler (4x) | Ja | Ja | Ja | Ja | Ja |
+| **Controller-Mounts (6x)** | Nein | **Ja** | Nein | Nein | Nein |
+| **USB-Mounts (4x)** | Nein | Nein | **Ja (Süd)** | **Ja (SW)** | **Ja (SO)** |
+| **USB-Wand-Ausschnitt** | Nein | Nein | **Ja (Süd)** | **Ja (SW)** | **Ja (SO)** |
