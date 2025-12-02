@@ -263,7 +263,7 @@ def create_magnet_features(body, dims, magnet_config):
     # Dimensions
     housing_depth = 2.6
     housing_width = 9.0
-    housing_height = 6.0
+    housing_height = 5.0 # Reduced by 1mm (was 6.0)
     
     cutout_depth_total = 3.2
     cutout_into_wall = 2.1
@@ -296,7 +296,7 @@ def create_magnet_features(body, dims, magnet_config):
     cutout_into_room = cutout_depth_total - cutout_into_wall
     c_x = apothem - cutout_into_room
     c_y = -cutout_width / 2.0
-    c_z = floor_height
+    c_z = floor_height - 1.0 # Lowered by 1mm (was floor_height)
     
     cutout_box = Part.makeBox(cutout_depth_total, cutout_width, cutout_height)
     
