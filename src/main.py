@@ -21,7 +21,7 @@ def log(message):
 try:
     from lib import cad_tools, export_tools
     from lib.grid_system import GridSystem
-    from models import hub, lids, pogo_attachment
+    from models import hub, lids, pogo_attachment, kachelboden
     import hub_config
     log("Libraries imported successfully.")
 except Exception as e:
@@ -231,6 +231,17 @@ def main():
         log("Building 9. PogoPinAufsatz...")
         pogo_parts = pogo_attachment.create_pogo_pin_attachment()
         build_and_export("9_PogoPinAufsatz", pogo_parts)
+        
+        # --- 10. Kachelboden ---
+        log("Building 10. Kachelboden...")
+        kachelboden_shape = kachelboden.create_model()
+        kachelboden_parts = {
+            "Kachelboden": {
+                "shape": kachelboden_shape,
+                "color": (0.8, 0.8, 0.2)
+            }
+        }
+        build_and_export("10_Kachelboden", kachelboden_parts)
         
         # Cleanup .FCBak files
         fcstd_dir = os.path.join(base_dir, 'output', 'fcstd')
