@@ -37,31 +37,11 @@ def get_slot_features(hub_type, slot_id):
     
     # Hub Type A Configuration
     if hub_type == HUB_TYPE_A:
-        if slot_id == 5:
-            # Old NE (0) -> New 2
-            # Old NW (2) -> New 6
-            conns[2] = 'male'
-            conns[6] = 'male'
-        elif slot_id == 1:
-            # Old SE (5) -> New 3
-            conns[3] = 'female'
-        elif slot_id == 3:
-            # Old SW (3) -> New 5
-            conns[5] = 'female'
+        pass # No specific connector overrides needed anymore
             
     # Hub Type B Configuration
     elif hub_type == HUB_TYPE_B:
-        if slot_id == 4:
-            # Old NE (0) -> New 2
-            conns[2] = 'male'
-        elif slot_id == 6:
-            # Old NW (2) -> New 6
-            conns[6] = 'male'
-        elif slot_id == 2:
-            # Old SE (5) -> New 3
-            # Old SW (3) -> New 5
-            conns[3] = 'female'
-            conns[5] = 'female'
+        pass # No specific connector overrides needed anymore
 
     # USB Configuration
     usb_enabled = False
@@ -91,10 +71,11 @@ def _get_connectors(hub_type, slot_id):
     conns = {}
     
     # Common for all hubs
-    # Side 1 (N): Male
-    # Side 4 (S): Female
-    conns[1] = 'male'
-    conns[4] = 'female'
+    # No default connectors anymore
+    # Side 1 (N): Male -> Removed
+    # Side 4 (S): Female -> Removed
+    # conns[1] = 'male'
+    # conns[4] = 'female'
         
     return conns
 

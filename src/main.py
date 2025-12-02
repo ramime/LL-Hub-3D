@@ -91,14 +91,7 @@ def main():
                 5: ['right'],
                 6: ['right']
             },
-            'connectors': {
-                1: 'male',
-                2: 'male', # NE
-                3: 'female', # SE
-                4: 'female',
-                5: 'female', # SW
-                6: 'male' # NW
-            }
+            # 'connectors': { ... } REMOVED
         }
         solo_slot_parts = hub.create_model(params.get('hub', {}), global_dims, features=features_full)
         
@@ -127,13 +120,13 @@ def main():
 
         # --- 3. Slot Controller ---
         log("Building 3. Slot Controller...")
-        slot_ctrl_parts = hub.create_model(params.get('hub', {}), global_dims, features={'controller_mounts': True})
+        slot_ctrl_parts = hub.create_model(params.get('hub', {}), global_dims, features={'controller_mounts': True, 'magnet_config': magnet_config_all})
         slot_ctrl = {"Slot_Controller": slot_ctrl_parts["Hub_Body"]}
         build_and_export("3_Slot_Controller", slot_ctrl)
 
         # --- 4. Slot USB ---
         log("Building 4. Slot USB...")
-        slot_usb_parts = hub.create_model(params.get('hub', {}), global_dims, features={'usb_mounts': True})
+        slot_usb_parts = hub.create_model(params.get('hub', {}), global_dims, features={'usb_mounts': True, 'magnet_config': magnet_config_all})
         slot_usb = {"Slot_USB": slot_usb_parts["Hub_Body"]}
         build_and_export("4_Slot_USB", slot_usb)
 
@@ -180,6 +173,17 @@ def main():
                 # Set open sides from neighbors map
                 neighbors = neighbors_map.get(slot['id'], [])
                 features['open_sides'] = neighbors
+                
+                # Calculate outer sides for magnets
+                all_sides = {1, 2, 3, 4, 5, 6}
+                neighbor_sides = set(neighbors)
+                outer_sides = all_sides - neighbor_sides
+                
+                magnet_config = {}
+                for side in outer_sides:
+                    magnet_config[side] = ['left', 'right']
+                
+                features['magnet_config'] = magnet_config
                 
                 # Create Part
                 
