@@ -75,14 +75,15 @@ def main():
                 log(f"Exporting {name}...")
                 export_parts(parts, name, output_dir_step, output_dir_3mf, formats=formats)
 
+        # Collection for "All" export
+        all_models_collection = {}
+
         # --- 1. Solo Slot komplett (Test-Assembly) ---
         # 1 Slot mit allen Features aktiv + Deckel
         log("Building 1. Solo Slot (Full Features)...")
         features_full = {
             'controller_mounts': True, 
-            'controller_mounts': True, 
             'usb_mounts': True, 
-            # 'magnet_sides': [1, 2, 3, 4, 5, 6], # Old list format
             'magnet_config': {
                 1: ['left', 'right'],
                 2: ['left'],
@@ -91,10 +92,13 @@ def main():
                 5: ['right'],
                 6: ['right']
             },
-            # 'connectors': { ... } REMOVED
         }
         solo_slot_parts = hub.create_model(params.get('hub', {}), global_dims, features=features_full)
         
+        # Rename Hub_Body to be unique
+        if "Hub_Body" in solo_slot_parts:
+            solo_slot_parts["Solo_Slot_Body"] = solo_slot_parts.pop("Hub_Body")
+
         # Extract Modifier
         solo_modifier = {}
         if "Modifier" in solo_slot_parts:
@@ -104,6 +108,7 @@ def main():
         solo_slot_parts.update(lids.create_sloped_lid(global_dims))
         
         build_and_export("1_Hub_Solo_Slot_Full", solo_slot_parts)
+        all_models_collection.update(solo_slot_parts)
         
         # Export Modifier separately (3MF only)
         if solo_modifier:
@@ -117,28 +122,33 @@ def main():
         # Rename key for clarity in export
         slot_basic = {"Slot_Basic": slot_basic_parts["Hub_Body"]}
         build_and_export("2_Slot_Basic", slot_basic)
+        all_models_collection.update(slot_basic)
 
         # --- 3. Slot Controller ---
         log("Building 3. Slot Controller...")
         slot_ctrl_parts = hub.create_model(params.get('hub', {}), global_dims, features={'controller_mounts': True, 'magnet_config': magnet_config_all})
         slot_ctrl = {"Slot_Controller": slot_ctrl_parts["Hub_Body"]}
         build_and_export("3_Slot_Controller", slot_ctrl)
+        all_models_collection.update(slot_ctrl)
 
         # --- 4. Slot USB ---
         log("Building 4. Slot USB...")
         slot_usb_parts = hub.create_model(params.get('hub', {}), global_dims, features={'usb_mounts': True, 'magnet_config': magnet_config_all})
         slot_usb = {"Slot_USB": slot_usb_parts["Hub_Body"]}
         build_and_export("4_Slot_USB", slot_usb)
+        all_models_collection.update(slot_usb)
 
         # --- 5. Deckel Horizontal ---
         log("Building 5. Lid Horizontal...")
         lid_h = lids.create_horizontal_lid(global_dims)
         build_and_export("5_Lid_Horizontal", lid_h)
+        all_models_collection.update(lid_h)
 
         # --- 6. Deckel Schräg ---
         log("Building 6. Lid Sloped...")
         lid_s = lids.create_sloped_lid(global_dims)
         build_and_export("6_Lid_Sloped", lid_s)
+        all_models_collection.update(lid_s)
 
         # --- 7 & 8. Hub Type A & B ---
         
@@ -186,8 +196,6 @@ def main():
                 features['magnet_config'] = magnet_config
                 
                 # Create Part
-                
-                # Create Part
                 parts = hub.create_model(params.get('hub', {}), global_dims, features=features)
                 slot_shape = parts['Hub_Body']['shape']
                 
@@ -213,6 +221,7 @@ def main():
                 
             # Export Main Body
             build_and_export(export_name, hub_assembly_parts)
+            all_models_collection.update(hub_assembly_parts)
 
             # Fuse modifiers and Export Separately
             if all_modifiers:
@@ -231,6 +240,7 @@ def main():
         log("Building 9. PogoPinAufsatz...")
         pogo_parts = pogo_attachment.create_pogo_pin_attachment()
         build_and_export("9_PogoPinAufsatz", pogo_parts)
+        all_models_collection.update(pogo_parts)
         
         # --- 10. Kachelboden ---
         log("Building 10. Kachelboden...")
@@ -242,6 +252,11 @@ def main():
             }
         }
         build_and_export("10_Kachelboden", kachelboden_parts)
+        all_models_collection.update(kachelboden_parts)
+
+        # --- 11. All Models ---
+        log("Building 11. All Models...")
+        build_and_export("11_All_Models", all_models_collection)
         
         # Cleanup .FCBak files
         fcstd_dir = os.path.join(base_dir, 'output', 'fcstd')
@@ -269,11 +284,15 @@ def export_parts(parts_dict, assembly_name, step_dir, threemf_dir, formats=None)
     if formats is None:
         formats = ['step', '3mf', 'fcstd']
     
-    doc_name = "ExportDoc_" + assembly_name
-    if FreeCAD.ActiveDocument:
-        doc = FreeCAD.ActiveDocument
-    else:
-        doc = FreeCAD.newDocument(doc_name)
+    # Use the assembly name as the document name
+    doc_name = assembly_name
+    
+    # Close document if it already exists (from a previous run or error)
+    if doc_name in FreeCAD.listDocuments():
+        FreeCAD.closeDocument(doc_name)
+        
+    # Create a new document for this export
+    doc = FreeCAD.newDocument(doc_name)
     
     export_objects = []
     
@@ -285,7 +304,7 @@ def export_parts(parts_dict, assembly_name, step_dir, threemf_dir, formats=None)
         if 'step' in formats:
             export_tools.export_to_step(shape, f"{name}", step_dir)
         
-        # 2. Add to Doc for 3MF
+        # 2. Add to Doc for 3MF and FCStd
         obj = doc.addObject("Part::Feature", name)
         obj.Shape = shape
         
@@ -307,6 +326,10 @@ def export_parts(parts_dict, assembly_name, step_dir, threemf_dir, formats=None)
         if not os.path.exists(fcstd_dir):
             os.makedirs(fcstd_dir)
         export_tools.export_to_fcstd(doc, assembly_name, fcstd_dir)
+        
+    # Close the document to free memory and ensure isolation
+    if doc.Name in FreeCAD.listDocuments():
+        FreeCAD.closeDocument(doc.Name)
 
 # Log the scope name to understand how FreeCAD runs this
 log(f"Scope name is: {__name__}")
