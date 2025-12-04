@@ -9,15 +9,15 @@ def create_model():
     """
     # Parameters
     tile_edge = 49.0
-    tile_thickness = 12.0
+    tile_thickness = 11.0
     
     # Tray parameters
     tray_height = 30.0
-    tray_wall_thickness = 3.0 # Wall thickness around the tile
+    tray_wall_thickness = 2.0 # Wall thickness around the tile
     tray_floor_thickness = 3.0 # Thickness below the tile (in profile)
     
     # Spacing parameters
-    tile_gap = 20.0
+    tile_gap = 5.0
     pitch = tile_thickness + tile_gap # 32mm
     
     tray_depth = pitch 
@@ -66,8 +66,20 @@ def create_model():
     
     # Outer Points
     # Bottom is at Z = -extra_depth
-    p1_out = FreeCAD.Vector(-tile_edge/2 - dx_wall, 0, -extra_depth)
-    p2_out = FreeCAD.Vector(tile_edge/2 + dx_wall, 0, -extra_depth)
+    # We must calculate X at Z = -extra_depth such that the wall remains parallel.
+    # Reference X at Z = tray_floor_thickness is (tile_edge/2 + dx_wall).
+    # Slope is 60 degrees.
+    # X(z) = X_ref + (z - z_ref) / tan(60)
+    
+    z_ref = tray_floor_thickness
+    z_bottom = -extra_depth
+    x_ref_outer = tile_edge/2 + dx_wall
+    
+    dx_shift_bottom = (z_bottom - z_ref) / math.tan(math.radians(60))
+    x_bottom_outer = x_ref_outer + dx_shift_bottom
+    
+    p1_out = FreeCAD.Vector(-x_bottom_outer, 0, z_bottom)
+    p2_out = FreeCAD.Vector(x_bottom_outer, 0, z_bottom)
     
     # Top Points
     # Same top height as before
@@ -188,7 +200,7 @@ def create_model():
     min_y = bbox_cut.YMin
     max_y = bbox_cut.YMax
     
-    padding = 10.0
+    padding = 2.0
     plate_length = (max_y - min_y) + 2 * padding
     
     plate = Part.makeBox(base_width, plate_length, base_thickness)
