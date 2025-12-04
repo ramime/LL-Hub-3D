@@ -27,7 +27,7 @@ def create_model():
     base_width = 100.0
     base_thickness = 3.0
     
-    num_trays = 3
+    num_trays = 13
     
     # 1. Create the Tray Profile (Cross-section in XZ plane)
     
@@ -152,8 +152,6 @@ def create_model():
     # "Kacheln sollen einen Abstand von 20mm haben".
     # Usually this means the gap between them.
     # If tiles are 12mm thick. Gap 20mm. Pitch = 32mm.
-    # If we place them with Y-spacing = 32mm / cos(20)?
-    # Or just 32mm?
     # If we assume the user means "Distance along the stacking direction", and stacking is horizontal.
     # Let's use Y_shift = pitch / cos(20).
     # This ensures the perpendicular distance between the planes of the tiles is `pitch`.
@@ -194,23 +192,36 @@ def create_model():
     # 7. Create Base Plate
     # Width = 100mm
     # Thickness = 3mm
-    # Length covers the trays.
+    # Length = 238mm (Fixed)
+    # The plate should be extended backwards.
+    # This means the "front" of the plate should align with the front of the first tray (plus some margin/padding),
+    # and the rest of the length goes backwards.
     
     bbox_cut = final_trays_cut.BoundBox
     min_y = bbox_cut.YMin
-    max_y = bbox_cut.YMax
+    # max_y = bbox_cut.YMax # Not used for length calculation anymore
     
     padding = 2.0
-    plate_length = (max_y - min_y) + 2 * padding
+    plate_length = 238.0
     
     plate = Part.makeBox(base_width, plate_length, base_thickness)
     
     # Center X
     plate.translate(FreeCAD.Vector(-base_width/2, 0, 0))
+    
     # Align Y
+    # We want the front of the plate (min Y) to be at min_y - padding.
     plate.translate(FreeCAD.Vector(0, min_y - padding, 0))
     
     # Fuse everything
     final_model = final_trays_cut.fuse(plate)
+    
+    # 8. Add Fillets
+    # Radius = 0.8mm
+    # Apply to all edges
+    try:
+        final_model = cad_tools.fillet_edges(final_model, 0.8)
+    except Exception as e:
+        print(f"Warning: Fillet failed: {e}")
     
     return final_model
