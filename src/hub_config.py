@@ -32,8 +32,7 @@ def get_slot_features(hub_type, slot_id):
     """
     slot_type = HUB_SLOT_CONFIG.get(hub_type, {}).get(slot_id, SLOT_BASIC)
     
-    # Initialize connectors with defaults (N/S)
-    conns = _get_connectors(hub_type, slot_id)
+
     
     # Hub Type A Configuration
     if hub_type == HUB_TYPE_A:
@@ -63,19 +62,8 @@ def get_slot_features(hub_type, slot_id):
             'enabled': usb_enabled,
             'angle': usb_angle
         },
-        'connectors': conns
+
     }
 
-def _get_connectors(hub_type, slot_id):
-    """Returns the connector configuration for a slot."""
-    conns = {}
-    
-    # Common for all hubs
-    # No default connectors anymore
-    # Side 1 (N): Male -> Removed
-    # Side 4 (S): Female -> Removed
-    # conns[1] = 'male'
-    # conns[4] = 'female'
-        
-    return conns
+
 

@@ -3,7 +3,7 @@ import Part
 import math
 from . import geometry
 from . import features as feat_module
-from . import connectors
+
 
 def create_model(params, global_dims, features={}):
     """
@@ -53,9 +53,7 @@ def create_model(params, global_dims, features={}):
     if open_sides:
         hub_body = geometry.create_cable_channels(hub_body, dims, open_sides)
         
-    # 10. Add Connectors (Configurable)
-    if 'connectors' in features:
-        hub_body = connectors.create_connectors(hub_body, dims, features['connectors'])
+
 
     # 11. Add Magnet Features
     magnet_config = features.get('magnet_config', {})
@@ -102,11 +100,6 @@ def _extract_dimensions(global_dims):
     d['delta_z_slope'] = d['slope_length_y'] * math.tan(angle_rad)
     d['z_south_wall'] = d['z_top_wall'] - d['delta_z_slope']
     
-    # Connector Dimensions
-    d['rail_spacing'] = 10.0
-    d['male_z_height'] = 5.0
-    d['female_housing_height'] = 4.0
-    d['pin_length'] = 25.0
-    d['recess_depth'] = 3.0
+
     
     return d
