@@ -62,7 +62,29 @@ def create_model(params, global_dims, features={}):
         for side in features['magnet_sides']:
             if side not in magnet_config:
                 magnet_config[side] = ['left', 'right']
-                
+
+    # Filter out magnet connectors on the USB wall to prevent collision
+    # Mapping angles to Side IDs:
+    # 0.0 -> 4 (South)
+    # -60.0 -> 5 (SW)
+    # 60.0 -> 3 (SE)
+    if usb_conf.get('enabled', False):
+        angle = usb_conf.get('angle', 0.0)
+        usb_side = None
+        
+        # Determine side based on angle (tolerance for float comparison)
+        if abs(angle - 0.0) < 0.1:
+            usb_side = 4
+        elif abs(angle - 60.0) < 0.1:
+            usb_side = 3
+        elif abs(angle - (-60.0)) < 0.1:
+            usb_side = 5
+            
+        if usb_side is not None and usb_side in magnet_config:
+            # Remove this side from magnet configuration
+            del magnet_config[usb_side]
+            # print(f"Removed magnet connectors from Side {usb_side} due to USB cutout collision.")
+
     if magnet_config:
         hub_body = feat_module.create_magnet_features(hub_body, dims, magnet_config)
 
