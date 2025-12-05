@@ -179,7 +179,7 @@ def create_cable_channels(body, dims, open_sides):
         1: -h + 9,
         2: -h + 11,
         3: -h + 11,
-        4: -h + 9,
+        4: h - 9,
         5: h - 11,
         6: h - 11
     }
