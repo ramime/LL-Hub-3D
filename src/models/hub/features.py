@@ -251,7 +251,7 @@ def create_magnet_features(body, dims, magnet_config):
       - Width: 9mm
       - Height: 6mm (from floor)
     - Cutout: Box cutting into wall and housing.
-      - Depth: 3.2mm (2.1mm into wall, 1.1mm into housing)
+      - Depth: 3.2mm (2.1mm into wall, 1.0mm into housing)
       - Width: 6.2mm
       - Height: 10.5mm (from floor)
       
@@ -265,7 +265,7 @@ def create_magnet_features(body, dims, magnet_config):
     housing_width = 9.0
     housing_height = 5.0 # Reduced by 1mm (was 6.0)
     
-    cutout_depth_total = 3.2
+    cutout_depth_total = 3.1
     cutout_into_wall = 2.1
     cutout_width = 6.2
     cutout_height = 10.5
