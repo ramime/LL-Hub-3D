@@ -266,9 +266,21 @@ def main():
         build_and_export("11_Kachelablage", kachelablage_parts)
         all_models_collection.update(kachelablage_parts)
 
-        # --- 12. All Models ---
-        log("Building 12. All Models...")
-        build_and_export("12_All_Models", all_models_collection)
+        # --- 12. Kachelablage Klein ---
+        log("Building 12. Kachelablage Klein...")
+        kachelablage_s_shape = kachelablage.create_model(num_trays=9, plate_length=175.0)
+        kachelablage_s_parts = {
+            "Kachelablage_Klein": {
+                "shape": kachelablage_s_shape,
+                "color": (0.7, 0.7, 0.9)
+            }
+        }
+        build_and_export("12_Kachelablage_Klein", kachelablage_s_parts)
+        all_models_collection.update(kachelablage_s_parts)
+
+        # --- 99. All Models ---
+        log("Building 99. All Models...")
+        build_and_export("99_All_Models", all_models_collection)
         
         # Cleanup .FCBak files
         fcstd_dir = os.path.join(base_dir, 'output', 'fcstd')

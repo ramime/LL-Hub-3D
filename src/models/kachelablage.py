@@ -3,7 +3,7 @@ import Part
 import math
 from lib import cad_tools
 
-def create_model():
+def create_model(num_trays=13, plate_length=238.0):
     """
     Creates the Kachelablage (Tile Tray) model.
     """
@@ -18,7 +18,7 @@ def create_model():
     
     # Spacing parameters
     tile_gap = 5.0
-    pitch = tile_thickness + tile_gap # 32mm
+    pitch = tile_thickness + tile_gap # 16mm (comment was 32mm outdated)
     
     tray_depth = pitch 
     
@@ -26,8 +26,6 @@ def create_model():
     
     base_width = 100.0
     base_thickness = 3.0
-    
-    num_trays = 13
     
     # 1. Create the Tray Profile (Cross-section in XZ plane)
     
@@ -113,6 +111,12 @@ def create_model():
     # Rotate around X axis by -20 degrees (to tilt back)
     tray.rotate(FreeCAD.Vector(0,0,0), FreeCAD.Vector(1,0,0), -tilt_angle)
     
+    # Apply Fillets to individual Tray Component
+    try:
+        tray = cad_tools.fillet_edges(tray, 0.8)
+    except Exception as e:
+        print(f"Warning: Tray Fillet failed: {e}")
+    
     
     # 4. Calculate Z-Shift
     # We want the lowest point of the slot floor to be at Z = base_thickness.
@@ -175,34 +179,17 @@ def create_model():
             final_trays = final_trays.fuse(t)
             
             
-    # 6. Cut the Trays at Base Plate Level
-    # We want to remove everything below Z = base_thickness.
-    # Create a large box below Z=3.
-    
-    # Bounding box to know size
-    bbox = final_trays.BoundBox
-    
-    cut_box = Part.makeBox(bbox.XLength + 20, bbox.YLength + 20, 100) # Height 100
-    # Position it so top face is at Z=base_thickness
-    cut_box.translate(FreeCAD.Vector(bbox.XMin - 10, bbox.YMin - 10, base_thickness - 100))
-    
-    final_trays_cut = final_trays.cut(cut_box)
-    
-    
-    # 7. Create Base Plate
+    # 6. Create Base Plate
     # Width = 100mm
     # Thickness = 3mm
-    # Length = 238mm (Fixed)
-    # The plate should be extended backwards.
-    # This means the "front" of the plate should align with the front of the first tray (plus some margin/padding),
-    # and the rest of the length goes backwards.
+    # Length defined by argument
     
-    bbox_cut = final_trays_cut.BoundBox
-    min_y = bbox_cut.YMin
-    # max_y = bbox_cut.YMax # Not used for length calculation anymore
+    # Calculate Y-Min from the trays to align plate
+    bbox_trays = final_trays.BoundBox
+    min_y = bbox_trays.YMin
     
     padding = 2.0
-    plate_length = 238.0
+    # plate_length defined in arguments
     
     plate = Part.makeBox(base_width, plate_length, base_thickness)
     
@@ -213,15 +200,29 @@ def create_model():
     # We want the front of the plate (min Y) to be at min_y - padding.
     plate.translate(FreeCAD.Vector(0, min_y - padding, 0))
     
-    # Fuse everything
-    final_model = final_trays_cut.fuse(plate)
-    
-    # 8. Add Fillets
-    # Radius = 0.8mm
-    # Apply to all edges
+    # Apply Fillets to Base Plate (edges only)
     try:
-        final_model = cad_tools.fillet_edges(final_model, 0.8)
+        plate = cad_tools.fillet_edges(plate, 0.8)
     except Exception as e:
-        print(f"Warning: Fillet failed: {e}")
+        print(f"Warning: Plate Fillet failed: {e}")
+
+    # 7. Fuse Trays and Plate (Before Cutting)
+    # This ensures a solid union where trays penetrate the plate.
+    # Trays go down to Z = -20 (approx), Plate is Z=0 to Z=3.
+    union_model = final_trays.fuse(plate)
+    
+    # 8. Cut the Bottom
+    # Now cut everything below Z=0 to create a clean flat bottom.
+    # We use a large cut box below Z=0.
+    
+    bbox_union = union_model.BoundBox
+    # Extend box slightly larger than union
+    cut_box = Part.makeBox(bbox_union.XLength + 20, bbox_union.YLength + 20, 100) 
+    
+    # Position top of cut_box exactly at Z=0
+    # X and Y centered/covering the model
+    cut_box.translate(FreeCAD.Vector(bbox_union.XMin - 10, bbox_union.YMin - 10, -100.0))
+    
+    final_model = union_model.cut(cut_box)
     
     return final_model
