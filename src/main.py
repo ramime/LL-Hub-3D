@@ -21,7 +21,7 @@ def log(message):
 try:
     from lib import cad_tools, export_tools
     from lib.grid_system import GridSystem
-    from models import hub, lids, pogo_attachment, kachelboden, kachelablage
+    from models import hub, lids, pogo_attachment, kachelboden, kachelablage, abstandshalter_pcb
     import hub_config
     log("Libraries imported successfully.")
 except Exception as e:
@@ -277,6 +277,18 @@ def main():
         }
         build_and_export("12_Kachelablage_Klein", kachelablage_s_parts)
         all_models_collection.update(kachelablage_s_parts)
+
+        # --- 13. Abstandshalter PCB ---
+        log("Building 13. Abstandshalter PCB...")
+        abstandshalter_shape = abstandshalter_pcb.create_model()
+        abstandshalter_parts = {
+            "Abstandshalter_PCB": {
+                "shape": abstandshalter_shape,
+                "color": (0.9, 0.9, 0.9)
+            }
+        }
+        build_and_export("13_Abstandshalter_PCB", abstandshalter_parts)
+        all_models_collection.update(abstandshalter_parts)
 
         # --- 99. All Models ---
         log("Building 99. All Models...")
